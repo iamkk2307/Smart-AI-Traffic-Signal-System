@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "Example calibration. One entry per approach, named by the leg traffic",
+    "arrives from. Replace every number with values measured at your site:",
+    "these are illustrative and will produce confident nonsense if copied.",
+    "",
+    "stop_line_polygon: image pixels, the detection zone for this approach.",
+    "homography: 3x3 image-to-road matrix. [x, y, w] = H . [u, v, 1], and",
+    "  the road point is (x/w, y/w) in metres, y along the approach.",
+    "zone_area_m2: road-plane area of the polygon, used for occupancy.",
+    "lanes, speed_limit_kmh: as posted."
+  ],
+  "north": {
+    "stop_line_polygon": [[520, 430], [760, 430], [900, 700], [380, 700]],
+    "homography": [[8.0, 0.0, -5120.0], [0.0, 0.0, 7200.0], [0.0, 1.0, -200.0]],
+    "zone_area_m2": 72.0,
+    "lanes": 2,
+    "speed_limit_kmh": 50
+  },
+  "south": {
+    "stop_line_polygon": [[540, 120], [780, 120], [820, 300], [500, 300]],
+    "homography": [[8.0, 0.0, -5120.0], [0.0, 0.0, 7200.0], [0.0, -1.0, 620.0]],
+    "zone_area_m2": 72.0,
+    "lanes": 2,
+    "speed_limit_kmh": 50
+  },
+  "east": {
+    "stop_line_polygon": [[900, 320], [1240, 320], [1240, 520], [900, 520]],
+    "homography": [[0.0, 8.0, -3200.0], [0.0, 0.0, 7200.0], [1.0, 0.0, -900.0]],
+    "zone_area_m2": 60.0,
+    "lanes": 2,
+    "speed_limit_kmh": 40
+  },
+  "west": {
+    "stop_line_polygon": [[60, 330], [400, 330], [400, 530], [60, 530]],
+    "homography": [[0.0, 8.0, -3200.0], [0.0, 0.0, 7200.0], [-1.0, 0.0, 400.0]],
+    "zone_area_m2": 60.0,
+    "lanes": 2,
+    "speed_limit_kmh": 40
+  }
+}

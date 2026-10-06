@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="booting">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Signal console — Rajiv Gandhi Chowk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ──────────────────────────────────────────────────────────────
+   Palette comes from the subject: asphalt, road marking paint,
+   signal-head enclosure grey, and the three mandated indication
+   colours. The indications are semantics, not accents — they are
+   the only saturated colour on the page and nothing else is
+   allowed to borrow them.
+   ────────────────────────────────────────────────────────────── */
+:root {
+  --asphalt:      #15181c;
+  --asphalt-lit:  #1b1f24;
+  --enclosure:    #22272d;
+  --enclosure-hi: #2b3238;
+  --rule:         #2e353c;
+  --marking:      #ece7d9;
+  --marking-dim:  #8d949d;
+  --marking-faint:#5d646d;
+  --go:           #2fbf5a;
+  --caution:      #f5a524;
+  --stop:         #e03e2f;
+  --walk:         #dbe4ef;
+  --lamp-off:     #1a1d21;
+
+  --gap: clamp(12px, 1.6vw, 22px);
+  --radius: 3px;
+
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: dark;
+}
+/* Daylight variant: concrete and ink, same signal colours. An ops
+   surface stays legible under a window as well as at 3am. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --asphalt:      #e4e1d8;
+    --asphalt-lit:  #edeae1;
+    --enclosure:    #f6f4ee;
+    --enclosure-hi: #ffffff;
+    --rule:         #c8c4b8;
+    --marking:      #1c1f23;
+    --marking-dim:  #5a6068;
+    --marking-faint:#8d939b;
+    --lamp-off:     #cfccc3;
+    color-scheme: light;
+  }
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--asphalt);
+  color: var(--marking);
+  font: 400 15px/1.5 "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums lining-nums;
+  min-height: 100%;
+}
+h1, h2, h3 { font-weight: 600; margin: 0; letter-spacing: 0.005em; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--caution); outline-offset: 2px; }
+
+/* ── header ─────────────────────────────────────────────── */
+header {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: baseline;
+  padding: 14px var(--gap) 12px;
+  background: color-mix(in srgb, var(--asphalt) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+}
+header h1 { font-size: clamp(19px, 2.4vw, 25px); font-weight: 700; }
+header .code { color: var(--marking-dim); font-weight: 500; }
+header .spacer { flex: 1 1 60px; }
+.readout { display: flex; gap: 18px; align-items: baseline; color: var(--marking-dim); }
+.readout b { color: var(--marking); font-weight: 600; }
+
+.source {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 3px 10px 4px; border: 1px solid var(--rule);
+  border-radius: 100px; font-size: 14px; color: var(--marking-dim);
+}
+.source .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--marking-faint); }
+.source[data-live="true"] .dot { background: var(--go); }
+.source[data-live="false"] .dot { background: var(--caution); }
+
+/* ── layout ─────────────────────────────────────────────── */
+main {
+  display: grid; gap: var(--gap);
+  padding: var(--gap);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+  max-width: 1500px; margin: 0 auto;
+}
+.wide { grid-column: 1 / -1; }
+@media (max-width: 880px) { main { grid-template-columns: minmax(0, 1fr); } }
+
+/* Panels are drawn like a signal-head enclosure: a flat housing with a
+   visor lip along the top edge. One device, used consistently, instead of
+   a soft shadow under every card. */
+.panel {
+  background: var(--enclosure);
+  border: 1px solid var(--rule);
+  border-top-width: 3px;
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+}
+.panel > header {
+  position: static; display: flex; align-items: baseline; gap: 12px;
+  padding: 0 0 10px; background: none; backdrop-filter: none;
+  border: 0; border-bottom: 1px solid var(--rule); margin-bottom: 12px;
+}
+.panel h2 { font-size: 17px; }
+.panel .note { color: var(--marking-dim); font-size: 14px; margin-left: auto; }
+
+/* ── junction plan ──────────────────────────────────────── */
+.plan { padding: 0; overflow: hidden; border-top-color: var(--rule); }
+.plan svg { display: block; width: 100%; height: auto; max-width: 100%; background: var(--asphalt-lit); }
+.lamp { transition: fill 140ms linear, opacity 140ms linear; }
+.lamp.changed { animation: bloom 420ms ease-out; }
+@keyframes bloom { from { filter: brightness(2.1); } to { filter: none; } }
+.veh { transition: transform 420ms cubic-bezier(.3,.7,.3,1), opacity 300ms linear; }
+@media (prefers-reduced-motion: reduce) {
+  .lamp, .veh { transition: none; }
+  .lamp.changed { animation: none; }
+}
+
+/* ── ring diagram ───────────────────────────────────────── */
+.ring { display: grid; gap: 8px; }
+.ring-row { display: grid; grid-template-columns: 92px 1fr auto; gap: 12px; align-items: center; }
+.ring-row .label { color: var(--marking-dim); }
+.ring-row.active .label { color: var(--marking); font-weight: 600; }
+.bar { height: 16px; background: var(--asphalt); border: 1px solid var(--rule); position: relative; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; display: block; width: 0; transition: width 240ms linear; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+.bar i.green { background: var(--go); }
+.bar i.yellow { background: var(--caution); }
+.bar i.red { background: var(--stop); }
+.bar i.walk { background: var(--walk); }
+.ring-row .val { color: var(--marking-dim); min-width: 5ch; text-align: right; }
+
+/* ── approach table ─────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: right; padding: 7px 6px; border-bottom: 1px solid var(--rule); }
+th { color: var(--marking-dim); font-weight: 500; font-size: 14px; }
+th:first-child, td:first-child { text-align: left; }
+tbody tr { border-left: 3px solid transparent; }
+tbody tr td:first-child { padding-left: 10px; position: relative; }
+/* The left edge carries the approach's current indication: information,
+   not ornament. */
+.tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+  padding: 1px 5px; border-radius: 4px; border: 1px solid currentColor; margin-left: 6px; }
+.tag.down { color: var(--stop); }
+.tag.glare { color: var(--caution); }
+tbody tr td:first-child::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+  background: var(--marking-faint);
+}
+tr[data-signal="GREEN"]  td:first-child::before { background: var(--go); }
+tr[data-signal="YELLOW"] td:first-child::before { background: var(--caution); }
+tr[data-signal="RED"]    td:first-child::before { background: var(--stop); }
+td.warn { color: var(--caution); }
+td.bad { color: var(--stop); }
+
+/* ── decision log ───────────────────────────────────────── */
+.log { display: grid; gap: 0; max-height: 330px; overflow-y: auto; }
+.entry { display: grid; grid-template-columns: 74px 1fr; gap: 14px; padding: 11px 2px; border-bottom: 1px solid var(--rule); }
+.entry:last-child { border-bottom: 0; }
+.entry .meta { color: var(--marking-dim); font-size: 14px; }
+.entry .meta b { display: block; color: var(--marking); font-weight: 600; }
+.entry p { margin: 0 0 6px; max-width: 72ch; }
+.entry .terms { color: var(--marking-faint); font-size: 14px; }
+.entry[data-trigger="preempt"] { background: color-mix(in srgb, var(--stop) 9%, transparent); }
+.entry[data-trigger="preempt_denied"] { background: color-mix(in srgb, var(--stop) 16%, transparent); }
+.entry[data-trigger="starvation"],
+.entry[data-trigger="ped_call"] { background: color-mix(in srgb, var(--caution) 9%, transparent); }
+
+/* ── controls ───────────────────────────────────────────── */
+.controls { display: grid; gap: 14px; }
+.group { display: grid; gap: 7px; }
+.group > span { color: var(--marking-dim); font-size: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 7px; }
+button {
+  font: inherit; color: var(--marking); background: var(--asphalt);
+  border: 1px solid var(--rule); border-radius: var(--radius);
+  padding: 6px 12px 7px; cursor: pointer;
+  transition: background 120ms linear, border-color 120ms linear;
+}
+button:hover { background: var(--enclosure-hi); }
+button[aria-pressed="true"] { border-color: var(--marking-dim); background: var(--enclosure-hi); font-weight: 600; }
+button.danger:hover { border-color: var(--stop); color: var(--stop); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+input[type="password"], input[type="text"] {
+  font: inherit; color: var(--marking); background: var(--asphalt);
+  border: 1px solid var(--rule); border-radius: var(--radius); padding: 6px 10px; min-width: 0; flex: 1 1 140px;
+}
+
+/* ── trace ──────────────────────────────────────────────── */
+.trace { width: 100%; height: 120px; display: block; }
+.trace path { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--marking-dim); font-size: 14px; padding-top: 8px; }
+.legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; }
+
+/* ── incidents / empty states ───────────────────────────── */
+.stack { display: grid; gap: 10px; }
+.incident { display: grid; gap: 3px; padding: 10px; border: 1px solid var(--rule); border-left-width: 3px; border-radius: var(--radius); }
+.incident[data-severity="critical"] { border-left-color: var(--stop); }
+.incident[data-severity="high"] { border-left-color: var(--stop); }
+.incident[data-severity="medium"] { border-left-color: var(--caution); }
+.incident[data-severity="low"] { border-left-color: var(--marking-faint); }
+.incident .head { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; }
+.incident .head span { color: var(--marking-dim); font-weight: 400; }
+.incident p { margin: 0; color: var(--marking-dim); max-width: 70ch; }
+.empty { color: var(--marking-dim); padding: 6px 0; }
+
+.fault {
+  display: none; align-items: center; gap: 14px;
+  padding: 12px 16px; margin: 0 var(--gap);
+  border: 1px solid var(--stop); border-left-width: 4px; border-radius: var(--radius);
+  background: color-mix(in srgb, var(--stop) 14%, transparent);
+}
+html[data-faulted="true"] .fault { display: flex; }
+.fault p { margin: 0; flex: 1; }
+
+footer { padding: 4px var(--gap) calc(26px + env(safe-area-inset-bottom, 0px)); color: var(--marking-faint); font-size: 14px; max-width: 1500px; margin: 0 auto; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Rajiv Gandhi Chowk</h1>
+  <span class="code" id="code">INT-001</span>
+  <span class="spacer"></span>
+  <div class="readout">
+    <span>cycle <b id="r-cycle">—</b></span>
+    <span>phase <b id="r-phase">—</b></span>
+    <span>mode <b id="r-mode">—</b></span>
+    <span>clock <b id="r-clock">—</b></span>
+  </div>
+  <span class="source" id="source" data-live="false"><span class="dot"></span><span id="source-text">connecting</span></span>
+</header>
+
+<div class="fault" role="alert">
+  <p><b>Interlock tripped.</b> <span id="fault-detail"></span> Every approach is held at red until the fault is acknowledged.</p>
+  <button class="danger" id="clear-fault">Acknowledge and restart</button>
+</div>
+
+<main>
+  <!-- HERO: the junction itself, drawn as a plan. -->
+  <section class="panel plan" aria-label="Junction plan view">
+    <svg id="plan" viewBox="0 0 600 600" role="img" aria-labelledby="plan-title">
+      <title id="plan-title">Live plan view of the intersection with signal indications and standing queues</title>
+    </svg>
+  </section>
+
+  <div class="stack">
+    <section class="panel" aria-label="Phase ring">
+      <header><h2>Where the cycle is</h2><span class="note" id="ring-note">—</span></header>
+      <div class="ring" id="ring"></div>
+    </section>
+
+    <section class="panel" aria-label="Approach detectors">
+      <header><h2>Approach detectors</h2><span class="note" id="detector-note">queue, speed, wait</span></header>
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th scope="col">Approach</th><th scope="col">Queue</th><th scope="col">Flow</th>
+            <th scope="col">Occ</th><th scope="col">Speed</th><th scope="col">85th</th>
+            <th scope="col">Limit</th><th scope="col">Wait</th><th scope="col">Forecast</th>
+          </tr></thead>
+          <tbody id="approaches"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel wide" aria-label="Decision log">
+    <header>
+      <h2>Why the signal did that</h2>
+      <span class="note">every phase change, with the numbers behind it</span>
+    </header>
+    <div class="log" id="log"><p class="empty">Waiting for the first phase change.</p></div>
+  </section>
+
+  <section class="panel" aria-label="Queue trace">
+    <header><h2>Standing queue</h2><span class="note" id="trace-note">last few minutes</span></header>
+    <svg class="trace" id="trace" viewBox="0 0 600 120" preserveAspectRatio="none" role="img"
+         aria-label="Queue length over time for each approach"></svg>
+    <div class="legend" id="trace-legend"></div>
+  </section>
+
+  <section class="panel" aria-label="Incidents">
+    <header><h2>Incidents</h2><span class="note">rules first, anomalies labelled as such</span></header>
+    <div class="stack" id="incidents"><p class="empty">Nothing detected.</p></div>
+  </section>
+
+  <section class="panel wide controls" aria-label="Operator controls">
+    <header><h2>Operator controls</h2><span class="note" id="controls-note">—</span></header>
+
+    <div class="group">
+      <span>Pedestrian call</span>
+      <div class="row" id="ped-buttons"></div>
+    </div>
+
+    <div class="group">
+      <span>Emergency preemption — bounded by a budget, not obeyed blindly</span>
+      <div class="row" id="emergency-buttons"></div>
+    </div>
+
+    <div class="group">
+      <span>Conditions — adjusts clearance intervals and discharge rate, not the phase ranking</span>
+      <div class="row" id="weather-buttons"></div>
+    </div>
+
+    <div class="group">
+      <span>Control policy</span>
+      <div class="row" id="mode-buttons"></div>
+    </div>
+
+    <div class="group" id="token-group" hidden>
+      <span>Operator token — required by the backend for anything that changes signal state</span>
+      <div class="row">
+        <input type="password" id="token" placeholder="X-Operator-Token" autocomplete="off">
+        <button id="token-save">Use this token</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="footer">—</footer>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════════
+   The console speaks to the FastAPI backend when one is reachable. When
+   it is not — opened as a file, published as a static page — it runs the
+   same control logic in the page against a small arrival simulation, so
+   the behaviour on screen is the real policy rather than a canned
+   animation. The source badge in the header always says which of the two
+   you are looking at; a demo that pretends to be connected to a signal
+   controller would be worse than no demo.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const APPROACHES = ["north", "south", "east", "west"];
+const CROSSWALKS  = ["cw_north", "cw_south", "cw_east", "cw_west"];
+const WEATHERS    = ["clear", "rain", "fog", "snow"];
+
+/* ── timing plan: mirrors app/core/controller.py TimingPlan ───────── */
+const TIMING = {
+  minGreen: 10, maxGreen: 60, yellow: 3.5, allRed: 2,
+  pedWalk: 7, pedClear: 11, maxRed: 120,
+  gapThreshold: 3, queueClear: 2, hysteresis: 1.15,
+  preemptMaxHold: 45, preemptBudget: 90, preemptWindow: 600, pedMaxWait: 90,
+  wQueue: 1, wOcc: 0.45, wForecast: 0.35, wWait: 0.8, wPed: 0.9,
+  queueNorm: 20, forecastNorm: 30, saturation: 0.52,
+  extraClearance: { clear: 0, cloudy: 0, rain: 1, fog: 1.5, snow: 2.5, thunderstorm: 1.5 },
+  dischargeFactor: { clear: 1, cloudy: 1, rain: 0.88, fog: 0.80, snow: 0.65, thunderstorm: 0.82 },
+  glareExtraClearance: 1.2, glareDischargeFactor: 0.92,
+};
+const PHASES = {
+  NS:  { label: "North–South through", vehicles: ["north", "south"], peds: ["cw_east", "cw_west"] },
+  EW:  { label: "East–West through",   vehicles: ["east", "west"],   peds: ["cw_north", "cw_south"] },
+  PED: { label: "Exclusive pedestrian", vehicles: [],                peds: CROSSWALKS.slice() },
+};
+const PHASE_OF = { north: "NS", south: "NS", east: "EW", west: "EW" };
+const RING = ["NS", "EW"];
+/* Glare lengthens the change intervals, raises the minimum green and
+   derates discharge — the same adjustments the server makes, and for the
+   same reason. It is deliberately absent from the pressure score: a term
+   applied to every candidate cannot change an argmax. */
+const extraFor = (w, glare) =>
+  (TIMING.extraClearance[w] ?? 0) + (glare ? TIMING.glareExtraClearance : 0);
+const clearanceFor = (w, glare) => [TIMING.yellow + extraFor(w, glare) * 0.4,
+                                    TIMING.allRed + extraFor(w, glare) * 0.6];
+const minGreenFor  = (w, glare) => TIMING.minGreen + extraFor(w, glare);
+const dischargeFor = (w, glare) => TIMING.saturation
+  * (TIMING.dischargeFactor[w] ?? 1) * (glare ? TIMING.glareDischargeFactor : 1);
+const glareOf = frame => !!(frame && frame.environment && frame.environment.glare);
+const glareLegs = frame =>
+  (frame && frame.environment && frame.environment.approaches_affected) || [];
+const degradedOf = frame => (frame && frame.degraded_approaches) || [];
+
+/* ══ solar geometry (mirror of app/sensors/environment.py) ══════════ */
+const SITE = { lat: 17.385, lon: 78.4867, utcOffset: 5.5 };
+const APPROACH_HEADING = { north: 180, south: 0, east: 270, west: 90 };
+const BEAM_FACTOR = { clear: 1, cloudy: 0.42, rain: 0.25, fog: 0.18,
+                      snow: 0.30, thunderstorm: 0.20 };
+const GLARE = { elevationMax: 15, beamFraction: 0.55, luxMin: 1200, azimuthTol: 35 };
+const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+const sep = (a, b) => Math.abs(((a - b + 180) % 360 + 360) % 360 - 180);
+
+function solarPosition(date) {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 1);
+  const doy = Math.floor((date.getTime() - start) / 86400000) + 1;
+  const hour = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  const g = 2 * Math.PI / 365 * (doy - 1 + (hour - 12) / 24);
+  const eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g)
+            - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+  const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g)
+             - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g)
+             - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+  const ha = rad((hour * 60 + eq + 4 * SITE.lon) / 4 - 180);
+  const lat = rad(SITE.lat);
+  let cz = Math.sin(lat) * Math.sin(decl)
+         + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
+  cz = Math.max(-1, Math.min(1, cz));
+  const elevation = 90 - deg(Math.acos(cz));
+  // atan2 rather than acos: no morning/afternoon sign fix-up to get wrong.
+  const azimuth = (deg(Math.atan2(Math.sin(ha),
+      Math.cos(ha) * Math.sin(lat) - Math.tan(decl) * Math.cos(lat))) + 180 + 360) % 360;
+  return [elevation, azimuth];
+}
+const clearSkyUv = e => e <= 0 ? 0 : 12.5 * Math.pow(Math.sin(rad(e)), 2.5);
+const clearSkyLux = e => e <= -0.833 ? 0
+  : e <= 0 ? 400 * (e + 0.833) / 0.833
+  : 128000 * Math.pow(Math.sin(rad(e)), 1.15);
+
+/* Local wall clock in, UTC instant out. Without the offset a 17:30 peak
+   would be placed at 17:30 UTC and the sun would be in the wrong sky. */
+function environmentAt(localWallTime, weather) {
+  const utc = new Date(localWallTime.getTime() - SITE.utcOffset * 3600000);
+  const [elevation, azimuth] = solarPosition(utc);
+  const beam = BEAM_FACTOR[weather] ?? 1;
+  const uv = clearSkyUv(elevation) * beam;
+  const lux = clearSkyLux(elevation) * (0.25 + 0.75 * beam);
+  const expected = clearSkyUv(elevation);
+  let affected = [];
+  if (elevation > 0 && elevation <= GLARE.elevationMax && lux >= GLARE.luxMin
+      && (expected <= 1e-9 || uv >= GLARE.beamFraction * expected)) {
+    affected = APPROACHES.filter(a =>
+      sep(APPROACH_HEADING[a], azimuth) <= GLARE.azimuthTol);
+  }
+  return {
+    uv_index: +uv.toFixed(2), solar_elevation: +elevation.toFixed(2),
+    solar_azimuth: +azimuth.toFixed(1), illuminance_lux: +lux.toFixed(1),
+    glare: affected.length > 0, approaches_affected: affected,
+    source: "model", stale: false,
+  };
+}
+
+/* ══ local controller ═══════════════════════════════════════════════ */
+class LocalController {
+  constructor() {
+    this.t = 0; this.cycle = 1; this.phase = "NS"; this.interval = "GREEN";
+    this.intervalElapsed = 0; this.greenElapsed = 0; this.mode = "adaptive";
+    this.lastGreenEnd = { NS: 0, EW: 0, PED: 0 };
+    this.pedCalledAt = { cw_north: null, cw_south: null, cw_east: null, cw_west: null };
+    this.pedElapsed = 0; this.servingPed = false;
+    this.preemptActive = false; this.preemptStarted = null; this.preemptSpans = [];
+    this.preemptTarget = null; this.deniedLogged = false;
+    this.decisions = []; this.faulted = false; this.pendingTrigger = "recall";
+  }
+  get preemptUsed() {
+    const floor = this.t - TIMING.preemptWindow;
+    let used = this.preemptSpans.reduce(
+      (acc, [a, b]) => acc + Math.max(0, Math.min(b, this.t) - Math.max(a, floor)), 0);
+    if (this.preemptActive && this.preemptStarted !== null)
+      used += Math.max(0, this.t - Math.max(this.preemptStarted, floor));
+    return used;
+  }
+  redTime(a) {
+    const p = PHASE_OF[a];
+    if (this.phase === p && this.interval === "GREEN") return 0;
+    return this.t - this.lastGreenEnd[p];
+  }
+  placePedCall(cw) { if (this.pedCalledAt[cw] === null) this.pedCalledAt[cw] = this.t; }
+
+  tick(frame, dt) {
+    this.t += dt; this.intervalElapsed += dt;
+    for (const cw of CROSSWALKS)
+      if (frame.pedCalls[cw] && this.pedCalledAt[cw] === null) this.pedCalledAt[cw] = this.t;
+    if (this.faulted) return this.command();
+
+    if (this.interval === "GREEN") {
+      this.greenElapsed += dt;
+      if (this.servingPed) this.pedElapsed += dt;
+      this.tickGreen(frame);
+    } else if (this.interval === "YELLOW") {
+      if (this.intervalElapsed >= clearanceFor(frame.weather, glareOf(frame))[0]) {
+        this.interval = "ALL_RED"; this.intervalElapsed = 0;
+      }
+    } else if (this.interval === "ALL_RED") {
+      if (this.intervalElapsed >= clearanceFor(frame.weather, glareOf(frame))[1]) this.selectPhase(frame);
+    }
+    return this.command();
+  }
+  pedCommitment() { return this.servingPed ? TIMING.pedWalk + TIMING.pedClear : 0; }
+
+  tickGreen(frame) {
+    const floor = Math.max(minGreenFor(frame.weather, glareOf(frame)), this.pedCommitment());
+    const target = this.preemptDecision(frame);
+    if (target !== null && target !== this.phase) {
+      if (this.greenElapsed >= floor) this.terminate("preempt");
+      return;
+    }
+    if (this.preemptActive) {
+      const hold = this.t - (this.preemptStarted ?? this.t);
+      const spent = this.preemptUsed >= TIMING.preemptBudget;
+      if (frame.emergency === null || hold >= TIMING.preemptMaxHold || spent) {
+        this.endPreempt();
+        if (this.greenElapsed >= floor)
+          this.terminate(spent ? "preempt_exhausted" : "preempt_release");
+      }
+      return;
+    }
+    if (this.greenElapsed < floor) return;
+    if (this.mode === "fixed_time") {
+      if (this.greenElapsed >= (TIMING.maxGreen + TIMING.minGreen) / 2) this.terminate("fixed_split");
+      return;
+    }
+    const { pressure } = this.pressure(frame);
+    const served = pressure[this.phase] ?? 0;
+    const other = Math.max(...RING.filter(k => k !== this.phase).map(k => pressure[k] ?? 0), 0);
+    if (this.greenElapsed >= TIMING.maxGreen) { if (other > 0) this.terminate("max_out"); return; }
+    if (other > served * TIMING.hysteresis && this.gappedOut(frame)) this.terminate("gap_out");
+  }
+  terminate(trigger) {
+    this.pendingTrigger = trigger;
+    this.lastGreenEnd[this.phase] = this.t;
+    this.interval = "YELLOW"; this.intervalElapsed = 0;
+    this.servingPed = false; this.pedElapsed = 0;
+  }
+  gappedOut(frame) {
+    const veh = PHASES[this.phase].vehicles;
+    if (!veh.length) return true;
+    const down = new Set(degradedOf(frame));
+    // An approach with no trustworthy data has not been shown to be clear,
+    // so it cannot gap out. The phase runs to max green instead.
+    return veh.every(a => !down.has(a) && !frame.approaches[a].degraded
+                       && frame.approaches[a].queue <= TIMING.queueClear
+                       && frame.approaches[a].gap >= TIMING.gapThreshold);
+  }
+  hasCall(frame, a) {
+    const r = frame.approaches[a];
+    // A degraded station reads as a standing call, never as an empty road:
+    // a failed detector and a clear road produce identical readings and
+    // only one of the two is safe to assume.
+    if (r.degraded || degradedOf(frame).includes(a)) return true;
+    return r.queue > 0 || r.occupancy > 0.02 || r.gap < TIMING.gapThreshold;
+  }
+  preemptDecision(frame) {
+    if (frame.emergency === null) return null;
+    if (this.preemptUsed >= TIMING.preemptBudget) return null;
+    if (this.preemptActive) return this.preemptTarget;
+    this.preemptTarget = PHASE_OF[frame.emergency.approach];
+    return this.preemptTarget;
+  }
+  endPreempt() {
+    if (this.preemptActive && this.preemptStarted !== null)
+      this.preemptSpans.push([this.preemptStarted, this.t]);
+    this.preemptActive = false; this.preemptStarted = null; this.preemptTarget = null;
+  }
+  pressure(frame) {
+    const pressure = {}, terms = {};
+    for (const key of RING) {
+      const ph = PHASES[key];
+      let q = 0, occ = 0, pred = 0, wait = 0;
+      for (const a of ph.vehicles) {
+        const r = frame.approaches[a];
+        q    += Math.min(r.queue / TIMING.queueNorm, 2);
+        occ  += Math.min(r.occupancy, 1);
+        pred += Math.min((frame.forecast[a] ?? 0) / TIMING.forecastNorm, 2);
+        if (this.hasCall(frame, a)) wait += Math.min(this.redTime(a) / TIMING.maxRed, 1);
+      }
+      const n = Math.max(ph.vehicles.length, 1);
+      const waits = CROSSWALKS
+        .filter(cw => this.pedCalledAt[cw] !== null && PHASES[key].peds.includes(cw))
+        .map(cw => this.t - this.pedCalledAt[cw]);
+      const t = {
+        queue: TIMING.wQueue * q / n,
+        occupancy: TIMING.wOcc * occ / n,
+        forecast: TIMING.wForecast * pred / n,
+        wait: TIMING.wWait * wait / n,
+        pedestrian: waits.length ? TIMING.wPed * Math.min(Math.max(...waits) / TIMING.pedMaxWait, 1) : 0,
+      };
+      terms[key] = t;
+      pressure[key] = Object.values(t).reduce((a, b) => a + b, 0);
+    }
+    return { pressure, terms };
+  }
+  selectPhase(frame) {
+    const { pressure, terms } = this.pressure(frame);
+    let trigger = this.pendingTrigger, next, reason;
+
+    const target = this.preemptDecision(frame);
+    const starved = APPROACHES.filter(a => this.redTime(a) >= TIMING.maxRed && this.hasCall(frame, a));
+    const overdue = CROSSWALKS.filter(cw => this.pedCalledAt[cw] !== null
+                                         && this.t - this.pedCalledAt[cw] >= TIMING.pedMaxWait);
+
+    if (target !== null) {
+      next = target; trigger = "preempt";
+      reason = `Emergency ${frame.emergency.kind} on the ${target} corridor. Preempting to `
+             + `${PHASES[target].label.toLowerCase()}; ${this.preemptUsed.toFixed(0)}s of `
+             + `${TIMING.preemptBudget}s preemption budget used in the last `
+             + `${TIMING.preemptWindow / 60} min.`;
+    } else if (frame.emergency !== null && !this.deniedLogged) {
+      this.deniedLogged = true; next = this.highest(pressure); trigger = "preempt_denied";
+      reason = `Emergency reported on ${frame.emergency.approach} but the preemption budget is `
+             + `spent (${this.preemptUsed.toFixed(0)}s of ${TIMING.preemptBudget}s). Serving `
+             + `${PHASE_OF[frame.emergency.approach]} by normal rotation and raising an alarm — `
+             + `preemption is not being silently dropped.`;
+    } else if (starved.length) {
+      const worst = starved.reduce((a, b) => this.redTime(a) > this.redTime(b) ? a : b);
+      next = PHASE_OF[worst]; trigger = "starvation";
+      reason = `${cap(worst)} has been at red for ${this.redTime(worst).toFixed(0)}s, at the `
+             + `${TIMING.maxRed}s ceiling. Forcing ${PHASES[next].label.toLowerCase()} regardless `
+             + `of pressure.`;
+    } else if (overdue.length) {
+      const waited = Math.max(...overdue.map(cw => this.t - this.pedCalledAt[cw]));
+      next = "PED"; trigger = "ped_call";
+      reason = `Pedestrian call on ${overdue.sort().join(", ")} waiting ${waited.toFixed(0)}s. `
+             + `Running the exclusive pedestrian phase — all vehicle movements stop.`;
+    } else {
+      next = this.highest(pressure);
+      reason = this.explain(next, trigger, pressure, terms, frame);
+    }
+
+    if (next === RING[0] && this.phase !== RING[0]) this.cycle += 1;
+    this.decisions.unshift({
+      t: this.t, cycle: this.cycle, from_phase: this.phase, to_phase: next,
+      trigger, reason, pressure, terms, served_green_time: this.greenElapsed,
+      timestamp: new Date().toISOString(),
+    });
+    if (this.decisions.length > 40) this.decisions.length = 40;
+
+    this.phase = next; this.interval = "GREEN";
+    this.intervalElapsed = 0; this.greenElapsed = 0;
+    const serves = PHASES[next].peds.filter(cw => this.pedCalledAt[cw] !== null);
+    for (const cw of serves) this.pedCalledAt[cw] = null;
+    this.servingPed = serves.length > 0 || next === "PED";
+    this.pedElapsed = 0;
+    if (trigger === "preempt") {
+      this.preemptActive = true; this.preemptStarted = this.t; this.deniedLogged = false;
+    }
+  }
+  highest(pressure) {
+    return RING.reduce((best, k) => {
+      if (pressure[k] > pressure[best]) return k;
+      if (pressure[k] === pressure[best])
+        return (this.t - this.lastGreenEnd[k]) > (this.t - this.lastGreenEnd[best]) ? k : best;
+      return best;
+    }, RING[0]);
+  }
+  explain(winner, trigger, pressure, terms, frame) {
+    const ph = PHASES[winner];
+    const queues = ph.vehicles.slice().sort()
+      .map(a => `${a} ${frame.approaches[a].queue}`).join(", ");
+    const dominant = Object.keys(terms[winner])
+      .reduce((a, b) => terms[winner][a] >= terms[winner][b] ? a : b);
+    const label = { queue: "standing queue", occupancy: "detector occupancy",
+      forecast: "forecast arrivals", wait: "accumulated red time",
+      pedestrian: "a waiting pedestrian call" }[dominant];
+    const triggerText = { gap_out: "Served phase gapped out",
+      max_out: "Served phase hit maximum green", fixed_split: "Fixed-time split elapsed",
+      preempt_release: "Emergency cleared", preempt_exhausted: "Preemption budget exhausted",
+      recall: "Ring recall" }[trigger] ?? trigger;
+    const other = Math.max(...RING.filter(k => k !== winner).map(k => pressure[k]), 0);
+    let extra = "";
+    const glare = glareOf(frame);
+    if (glare || (frame.weather !== "clear" && frame.weather !== "cloudy")) {
+      const [y, ar] = clearanceFor(frame.weather, glare);
+      const env = frame.environment ?? {};
+      let conditions = (frame.weather === "clear" || frame.weather === "cloudy")
+        ? "Clear" : cap(frame.weather);
+      if (glare) conditions += ` with low-sun glare on ${glareLegs(frame).join(", ")}`
+        + ` (UV ${(env.uv_index ?? 0).toFixed(1)}, sun `
+        + `${(env.solar_elevation ?? 0).toFixed(1)}° at ${(env.solar_azimuth ?? 0).toFixed(0)}°)`;
+      extra = ` ${conditions}: clearance extended to ${y.toFixed(1)}s yellow `
+            + `plus ${ar.toFixed(1)}s all-red and discharge derated to `
+            + `${dischargeFor(frame.weather, glare).toFixed(2)} veh/s.`;
+    }
+    const down = degradedOf(frame);
+    if (down.length) extra += ` Detector data unavailable on ${down.join(", ")};`
+      + ` those approaches are on constant recall and cannot gap out.`;
+    return `${triggerText}. ${ph.label} selected on ${label} (pressure `
+         + `${pressure[winner].toFixed(2)} vs ${other.toFixed(2)}); queues ${queues}.${extra}`;
+  }
+  walkState(cw) {
+    if (this.faulted || !PHASES[this.phase].peds.includes(cw)) return "DONT_WALK";
+    if (this.interval !== "GREEN" || !this.servingPed) return "DONT_WALK";
+    if (this.pedElapsed <= TIMING.pedWalk) return "WALK";
+    if (this.pedElapsed <= TIMING.pedWalk + TIMING.pedClear) return "FLASHING";
+    return "DONT_WALK";
+  }
+  command() {
+    const ph = PHASES[this.phase], vehicle = {}, pedestrian = {};
+    for (const a of APPROACHES) {
+      vehicle[a] = this.faulted ? "RED"
+        : this.interval === "GREEN"  ? (ph.vehicles.includes(a) ? "GREEN" : "RED")
+        : this.interval === "YELLOW" ? (ph.vehicles.includes(a) ? "YELLOW" : "RED")
+        : "RED";
+    }
+    for (const cw of CROSSWALKS) pedestrian[cw] = this.walkState(cw);
+    return { phase: this.phase, interval: this.interval, vehicle, pedestrian,
+             cycle: this.cycle, preempted: this.preemptActive,
+             interval_elapsed: this.intervalElapsed };
+  }
+}
+
+/* ══ local arrival simulation ═══════════════════════════════════════ */
+const HOURLY = [0.22,0.15,0.12,0.13,0.25,0.55,1.05,1.72,1.95,1.48,1.12,1.05,
+                1.15,1.10,1.05,1.18,1.52,1.84,1.66,1.20,0.88,0.66,0.46,0.31];
+const DEMAND = { north: { vph: 780, lanes: 2, speedLimit: 60 },
+                 south: { vph: 700, lanes: 2, speedLimit: 60 },
+                 east:  { vph: 460, lanes: 2, speedLimit: 40 },
+                 west:  { vph: 500, lanes: 2, speedLimit: 40 } };
+
+class LocalSim {
+  constructor() {
+    this.t = 0;
+    this.clock = new Date(); this.clock.setHours(8, 10, 0, 0);
+    this.state = {}; this.weather = "clear";
+    for (const a of APPROACHES)
+      this.state[a] = { queue: 0, wait: 0, gap: 99, greenElapsed: 0, departed: 0, delay: 0, flow: 0 };
+    this.pedCalls = { cw_north: false, cw_south: false, cw_east: false, cw_west: false };
+    this.emergency = null; this.emergencyUntil = 0;
+    this.served = 0; this.totalDelay = 0; this.incidents = [];
+    this.blocked = {}; this.history = [];
+  }
+  get wallTime() { return new Date(this.clock.getTime() + this.t * 1000); }
+  multiplier() {
+    const now = this.wallTime, h = now.getHours() + now.getMinutes() / 60;
+    const lo = HOURLY[Math.floor(h) % 24], hi = HOURLY[(Math.floor(h) + 1) % 24];
+    return lo + (hi - lo) * (h - Math.floor(h));
+  }
+  poisson(mean) {
+    if (mean <= 0) return 0;
+    const limit = Math.exp(-mean); let k = 0, p = 1;
+    for (;;) { p *= Math.random(); if (p <= limit) return k; k += 1; if (k > 60) return k; }
+  }
+  step(dt, command) {
+    this.t += dt;
+    const m = this.multiplier();
+    const rate = dischargeFor(this.weather, glareOf({ environment: this.environment() }));
+    for (const a of APPROACHES) {
+      const st = this.state[a], d = DEMAND[a];
+      const arrivals = this.poisson(d.vph * m / 3600 * dt);
+      st.queue += arrivals;
+      st.gap = arrivals ? 0 : st.gap + dt;
+      const green = command && command.vehicle[a] === "GREEN";
+      if (green) {
+        st.greenElapsed += dt;
+        let cap = rate * d.lanes * dt * Math.min(1, st.greenElapsed / 2);
+        if (this.t < (this.blocked[a] ?? 0)) cap *= 0.25;
+        const out = Math.min(st.queue, cap);
+        st.queue -= out; st.departed += out; this.served += out;
+        if (st.queue <= 0.5) st.wait = 0;
+      } else {
+        st.greenElapsed = 0;
+        if (st.queue > 0.5) st.wait += dt;
+      }
+      st.delay += st.queue * dt; this.totalDelay += st.queue * dt;
+    }
+    for (const cw of CROSSWALKS)
+      if (!this.pedCalls[cw] && Math.random() < 26 / 4 / 3600 * dt) this.pedCalls[cw] = true;
+    if (this.t >= this.emergencyUntil) {
+      this.emergency = null;
+      if (Math.random() < 2.4 / 3600 * dt) this.injectEmergency(
+        APPROACHES[Math.floor(Math.random() * 4)],
+        ["ambulance", "fire", "police"][Math.floor(Math.random() * 3)], 22);
+    }
+    return this.frame();
+  }
+  environment() { return environmentAt(this.wallTime, this.weather); }
+  frame() {
+    const approaches = {}, forecast = {};
+    const environment = this.environment();
+    for (const a of APPROACHES) {
+      const st = this.state[a], d = DEMAND[a];
+      const occupancy = +(1 - Math.exp(-st.queue / (6 * d.lanes))).toFixed(3);
+      // Free-flow when the approach is clear, falling as the queue builds.
+      // Stopped vehicles are excluded from a speed sample, as a radar head
+      // or a tracker excludes them: averaging in zeros reports a queue,
+      // not a speed. No departures this interval means no measurement, and
+      // the sample count says so rather than the mean reading zero.
+      const limit = d.speedLimit ?? 50;
+      const mean = limit * 1.06 * Math.pow(Math.max(0, 1 - occupancy), 0.8);
+      const samples = Math.round(st.departed);
+      const measured = samples > 0 && mean > 1 ? mean : 0;
+      approaches[a] = {
+        queue: Math.round(st.queue),
+        flow: +(st.departed * (60 / 5)).toFixed(1),
+        occupancy,
+        mean_speed: +measured.toFixed(1),
+        speed_85th: +(measured ? measured * 1.18 : 0).toFixed(1),
+        speed_limit: limit,
+        speeding: measured > limit ? Math.max(1, Math.round(samples * 0.3)) : 0,
+        speed_samples: measured ? samples : 0,
+        degraded: false,
+        gap: +st.gap.toFixed(2), max_wait: +st.wait.toFixed(1),
+      };
+      st.departed = 0;
+      // Local stand-in for the server-side forecaster: the hour-of-day
+      // profile applied to this approach's own baseline demand.
+      forecast[a] = +(d.vph * this.multiplier() / 60).toFixed(1);
+    }
+    return { approaches, pedCalls: { ...this.pedCalls }, forecast,
+             emergency: this.emergency, weather: this.weather,
+             environment, degraded_approaches: [],
+             timestamp: this.wallTime.toISOString() };
+  }
+  clearPedCalls(list) { for (const cw of list) this.pedCalls[cw] = false; }
+  injectEmergency(approach, kind, duration) {
+    this.emergency = { approach, kind }; this.emergencyUntil = this.t + duration;
+  }
+  metrics() {
+    return { mean_delay_s: +(this.totalDelay / Math.max(this.served, 1)).toFixed(2),
+             vehicles_served: Math.round(this.served), elapsed: Math.round(this.t) };
+  }
+}
+
+/* ══ incident rules (mirror of app/ml/incidents.py rule layer) ══════ */
+class LocalIncidents {
+  constructor() { this.stalled = {}; this.jammed = {}; this.open = new Map(); }
+  update(frame, command, dt) {
+    const greens = new Set(APPROACHES.filter(a => command.vehicle[a] === "GREEN"));
+    for (const a of APPROACHES) {
+      const r = frame.approaches[a];
+      const stalled = greens.has(a) && r.queue >= 8 && r.flow <= 1.5;
+      this.stalled[a] = stalled ? (this.stalled[a] ?? 0) + dt : 0;
+      const jammed = r.occupancy >= 0.9;
+      this.jammed[a] = jammed ? (this.jammed[a] ?? 0) + dt : 0;
+
+      if (this.stalled[a] >= 20) this.raise(`blockage:${a}`, {
+        approach: a, kind: "lane_blockage", severity: "high", layer: "rule",
+        detail: `${cap(a)} has held ${r.queue} vehicles with ${r.flow.toFixed(1)} veh/min `
+              + `discharge for ${this.stalled[a].toFixed(0)}s of its own green. Queue is not `
+              + `clearing on green, so the obstruction is downstream of the stop line.` });
+      else if (!stalled) this.open.delete(`blockage:${a}`);
+
+      if (this.jammed[a] >= 45) this.raise(`jam:${a}`, {
+        approach: a, kind: "saturation", severity: "medium", layer: "rule",
+        detail: `${cap(a)} detector occupancy has stayed at ${r.occupancy.toFixed(2)} for `
+              + `${this.jammed[a].toFixed(0)}s. Demand exceeds the capacity this phase can supply.` });
+      else if (!jammed) this.open.delete(`jam:${a}`);
+
+      if (r.max_wait >= 150) this.raise(`wait:${a}`, {
+        approach: a, kind: "excessive_delay", severity: "critical", layer: "rule",
+        detail: `${cap(a)} head of queue has waited ${r.max_wait.toFixed(0)}s, past the 150s `
+              + `service limit.` });
+      else this.open.delete(`wait:${a}`);
+    }
+    return [...this.open.values()];
+  }
+  raise(key, incident) {
+    if (!this.open.has(key))
+      this.open.set(key, { ...incident, timestamp: new Date().toISOString(), confidence: 0.9 });
+  }
+}
+
+/* ══ rendering ══════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const SIGNAL_COLOUR = { GREEN: "var(--go)", YELLOW: "var(--caution)", RED: "var(--stop)" };
+
+/* Geometry. Left-hand traffic, matching the seeded location: traffic
+   from the north keeps to the east side of the carriageway. */
+const PLAN = {
+  size: 600, centre: 300, road: 176, box: 88,
+  bands: {
+    north: { axis: "v", sign: -1, lane: 1 },
+    south: { axis: "v", sign:  1, lane: -1 },
+    east:  { axis: "h", sign:  1, lane:  1 },
+    west:  { axis: "h", sign: -1, lane: -1 },
+  },
+};
+
+function buildPlan() {
+  const { size, centre, road, box } = PLAN;
+  const half = road / 2, edge = centre - half, far = centre + half;
+  const ns = [], pieces = [];
+
+  // Carriageways.
+  pieces.push(`<rect x="${edge}" y="0" width="${road}" height="${size}" fill="var(--asphalt)"/>`);
+  pieces.push(`<rect x="0" y="${edge}" width="${size}" height="${road}" fill="var(--asphalt)"/>`);
+
+  // Kerb lines.
+  const kerb = `stroke="var(--marking-faint)" stroke-width="1.2" fill="none"`;
+  for (const x of [edge, far]) {
+    pieces.push(`<path d="M${x} 0 V${edge}" ${kerb}/><path d="M${x} ${far} V${size}" ${kerb}/>`);
+  }
+  for (const y of [edge, far]) {
+    pieces.push(`<path d="M0 ${y} H${edge}" ${kerb}/><path d="M${far} ${y} H${size}" ${kerb}/>`);
+  }
+
+  // Centre line of each carriageway, dashed.
+  const dash = `stroke="var(--marking-faint)" stroke-width="2" stroke-dasharray="16 14" fill="none" opacity=".75"`;
+  pieces.push(`<path d="M${centre} 4 V${centre - box}" ${dash}/>`);
+  pieces.push(`<path d="M${centre} ${centre + box} V${size - 4}" ${dash}/>`);
+  pieces.push(`<path d="M4 ${centre} H${centre - box}" ${dash}/>`);
+  pieces.push(`<path d="M${centre + box} ${centre} H${size - 4}" ${dash}/>`);
+
+  // Crosswalk ladders and stop bars.
+  const stop = centre - box, stopFar = centre + box;
+  const ladder = (x, y, w, h, vertical) => {
+    let out = "";
+    const n = 7, step = (vertical ? w : h) / n;
+    for (let i = 0; i < n; i++) {
+      out += vertical
+        ? `<rect x="${x + i * step + 2}" y="${y}" width="${step - 4}" height="${h}" fill="var(--marking)" opacity=".5"/>`
+        : `<rect x="${x}" y="${y + i * step + 2}" width="${w}" height="${step - 4}" fill="var(--marking)" opacity=".5"/>`;
+    }
+    return out;
+  };
+  pieces.push(ladder(edge, stop - 26, road, 18, true));      // cw across north leg
+  pieces.push(ladder(edge, stopFar + 8, road, 18, true));    // cw across south leg
+  pieces.push(ladder(stopFar + 8, edge, 18, road, false));   // cw across east leg
+  pieces.push(ladder(stop - 26, edge, 18, road, false));     // cw across west leg
+
+  const bar = `fill="var(--marking)" opacity=".85"`;
+  pieces.push(`<rect x="${centre}" y="${stop - 32}" width="${half}" height="5" ${bar}/>`);
+  pieces.push(`<rect x="${edge}" y="${stopFar + 27}" width="${half}" height="5" ${bar}/>`);
+  pieces.push(`<rect x="${stopFar + 27}" y="${centre}" width="5" height="${half}" ${bar}/>`);
+  pieces.push(`<rect x="${stop - 32}" y="${edge}" width="5" height="${half}" ${bar}/>`);
+
+  // Queues, signal heads, pedestrian signals, labels.
+  for (const a of APPROACHES) pieces.push(`<g id="q-${a}"></g>`);
+  pieces.push(signalHead("north", centre + half + 12, stop - 78, 0));
+  pieces.push(signalHead("south", edge - 48, stopFar + 20, 0));
+  pieces.push(signalHead("east",  stopFar + 20, centre + half + 12, 0));
+  pieces.push(signalHead("west",  edge - 48, stop - 78, 0));
+  for (const cw of CROSSWALKS) pieces.push(pedSignal(cw));
+
+  const label = (text, x, y, anchor) =>
+    `<text x="${x}" y="${y}" fill="var(--marking-faint)" font-size="15" text-anchor="${anchor}">${text}</text>`;
+  pieces.push(label("N", centre, 18, "middle"));
+  pieces.push(label("S", centre, size - 8, "middle"));
+  pieces.push(label("E", size - 8, centre + 5, "end"));
+  pieces.push(label("W", 8, centre + 5, "start"));
+
+  // Centre readout.
+  pieces.push(`
+    <g id="centre" text-anchor="middle">
+      <text id="c-count" x="${centre}" y="${centre - 2}" fill="var(--marking)" font-size="44" font-weight="700">—</text>
+      <text id="c-label" x="${centre}" y="${centre + 24}" fill="var(--marking-dim)" font-size="15">waiting</text>
+    </g>`);
+
+  $("plan").innerHTML = $("plan").innerHTML + pieces.join("");
+}
+
+function signalHead(approach, x, y, rotate) {
+  const lamps = ["RED", "YELLOW", "GREEN"].map((k, i) =>
+    `<circle class="lamp" data-head="${approach}" data-lamp="${k}" cx="18" cy="${17 + i * 24}" r="8.5" fill="var(--lamp-off)"/>`
+  ).join("");
+  return `<g transform="translate(${x} ${y}) rotate(${rotate})">
+    <rect x="0" y="0" width="36" height="82" rx="4" fill="var(--enclosure)" stroke="var(--rule)"/>
+    <rect x="0" y="0" width="36" height="4" rx="2" fill="var(--enclosure-hi)"/>
+    ${lamps}
+  </g>`;
+}
+
+function pedSignal(cw) {
+  const { centre, road, box } = PLAN, half = road / 2;
+  const spots = {
+    cw_north: [centre - half - 26, centre - box - 30],
+    cw_south: [centre + half + 6,  centre + box + 14],
+    cw_east:  [centre + box + 14,  centre - half - 26],
+    cw_west:  [centre - box - 32,  centre + half + 6],
+  };
+  const [x, y] = spots[cw];
+  return `<g transform="translate(${x} ${y})">
+    <rect x="0" y="0" width="20" height="20" rx="3" fill="var(--enclosure)" stroke="var(--rule)"/>
+    <circle class="lamp" data-ped="${cw}" cx="10" cy="10" r="6" fill="var(--lamp-off)"/>
+  </g>`;
+}
+
+const previousLamp = new Map();
+function paintLamps(command) {
+  for (const a of APPROACHES) {
+    const active = command.vehicle[a];
+    for (const k of ["RED", "YELLOW", "GREEN"]) {
+      const node = document.querySelector(`[data-head="${a}"][data-lamp="${k}"]`);
+      if (!node) continue;
+      const on = active === k;
+      node.setAttribute("fill", on ? SIGNAL_COLOUR[k] : "var(--lamp-off)");
+      node.style.opacity = on ? "1" : ".55";
+    }
+    if (previousLamp.get(a) !== active) {
+      const node = document.querySelector(`[data-head="${a}"][data-lamp="${active}"]`);
+      if (node) { node.classList.remove("changed"); void node.clientWidth; node.classList.add("changed"); }
+      previousLamp.set(a, active);
+    }
+  }
+  for (const cw of CROSSWALKS) {
+    const node = document.querySelector(`[data-ped="${cw}"]`);
+    if (!node) continue;
+    const w = command.pedestrian[cw];
+    node.setAttribute("fill", w === "WALK" ? "var(--walk)" : w === "FLASHING" ? "var(--caution)" : "var(--lamp-off)");
+    node.style.opacity = w === "DONT_WALK" ? ".5" : "1";
+  }
+}
+
+function paintQueues(frame) {
+  const { centre, road, box } = PLAN, half = road / 2;
+  const VW = 15, VL = 26, GAP = 6, MAX = 8;
+  for (const a of APPROACHES) {
+    const group = $(`q-${a}`);
+    if (!group) continue;
+    const count = Math.min(frame.approaches[a].queue, MAX);
+    const overflow = frame.approaches[a].queue - count;
+    let out = "";
+    for (let i = 0; i < count; i++) {
+      const back = i * (VL + GAP);
+      let x, y, w, h;
+      if (a === "north")      { x = centre + half / 2 - VW / 2; y = centre - box - 40 - VL - back; w = VW; h = VL; }
+      else if (a === "south") { x = centre - half / 2 - VW / 2; y = centre + box + 40 + back;      w = VW; h = VL; }
+      else if (a === "east")  { x = centre + box + 40 + back;   y = centre + half / 2 - VW / 2;    w = VL; h = VW; }
+      else                    { x = centre - box - 40 - VL - back; y = centre - half / 2 - VW / 2; w = VL; h = VW; }
+      const lead = i === 0;
+      out += `<rect class="veh" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w}" height="${h}" rx="3"
+        fill="var(--marking-dim)" opacity="${(0.92 - i * 0.07).toFixed(2)}"
+        stroke="${lead ? "var(--marking)" : "none"}" stroke-width="${lead ? 1 : 0}"/>`;
+    }
+    if (overflow > 0) {
+      const pos = { north: [centre + half / 2, centre - box - 56 - MAX * (VL + GAP)],
+                    south: [centre - half / 2, centre + box + 56 + MAX * (VL + GAP)],
+                    east:  [centre + box + 56 + MAX * (VL + GAP), centre + half / 2],
+                    west:  [centre - box - 56 - MAX * (VL + GAP), centre - half / 2] }[a];
+      out += `<text x="${pos[0]}" y="${pos[1]}" fill="var(--marking-dim)" font-size="15"
+        text-anchor="middle">+${overflow}</text>`;
+    }
+    group.innerHTML = out;
+  }
+}
+
+function paintCentre(command, state) {
+  const remaining = command.interval_remaining;
+  $("c-count").textContent = remaining === null || remaining === undefined
+    ? Math.round(command.interval_elapsed ?? 0) : Math.ceil(remaining);
+  const phase = PHASES[command.phase] ?? { label: command.phase };
+  const interval = { GREEN: "green", YELLOW: "change interval", ALL_RED: "all-red clearance",
+                     FAULT_FLASH: "fault" }[command.interval] ?? command.interval;
+  $("c-label").textContent = command.preempted ? "emergency hold" : `${phase.label} · ${interval}`;
+  $("c-count").setAttribute("fill",
+    command.interval === "GREEN" ? "var(--go)" :
+    command.interval === "YELLOW" ? "var(--caution)" : "var(--stop)");
+}
+
+function paintRing(command, snapshot, frame) {
+  const [yellow, allRed] = clearanceFor(frame.weather ?? "clear", glareOf(frame));
+  const rows = [
+    { key: "NS", label: "North–South" },
+    { key: "EW", label: "East–West" },
+    { key: "PED", label: "Pedestrian" },
+  ];
+  $("ring").innerHTML = rows.map(row => {
+    const active = command.phase === row.key;
+    let cls = "red", width = 0, value = "red";
+    if (active) {
+      if (command.interval === "GREEN") {
+        cls = row.key === "PED" ? "walk" : "green";
+        width = Math.min(100, (command.interval_elapsed / TIMING.maxGreen) * 100);
+        value = `${Math.round(command.interval_elapsed)}s`;
+      } else if (command.interval === "YELLOW") {
+        cls = "yellow"; width = Math.min(100, (command.interval_elapsed / yellow) * 100);
+        value = `${Math.round(command.interval_elapsed)}s`;
+      } else {
+        cls = "red"; width = Math.min(100, (command.interval_elapsed / allRed) * 100);
+        value = "clear";
+      }
+    } else {
+      const red = snapshot?.red_time?.[PHASES[row.key].vehicles[0]];
+      if (red !== undefined) { width = Math.min(100, (red / TIMING.maxRed) * 100); value = `${Math.round(red)}s`; }
+      else if (row.key === "PED") { value = "on call"; }
+    }
+    return `<div class="ring-row ${active ? "active" : ""}">
+      <span class="label">${row.label}</span>
+      <span class="bar"><i class="${cls}" style="width:${width}%"></i></span>
+      <span class="val">${value}</span>
+    </div>`;
+  }).join("");
+  $("ring-note").textContent = `cycle ${command.cycle} · ${
+    command.preempted ? "preempted" : (snapshot?.mode ?? "adaptive").replace("_", " ")}`;
+}
+
+function paintApproaches(frame, command, forecast) {
+  const down = new Set(degradedOf(frame));
+  const glare = new Set(glareLegs(frame));
+  $("approaches").innerHTML = APPROACHES.map(a => {
+    const r = frame.approaches[a];
+    const waitClass = r.max_wait >= 120 ? "bad" : r.max_wait >= 70 ? "warn" : "";
+    const limit = r.speed_limit ?? 50;
+    const p85 = r.speed_85th ?? 0;
+    const degraded = r.degraded || down.has(a);
+    // A zero speed with no samples behind it means "not measured", which is
+    // not the same claim as "stopped", so it is shown as a dash.
+    const speed = (r.speed_samples ?? 0) > 0 || (r.mean_speed ?? 0) > 0
+      ? (r.mean_speed ?? 0).toFixed(1) : "—";
+    const tags = (degraded ? '<span class="tag down">down</span>' : "")
+               + (glare.has(a) ? '<span class="tag glare">glare</span>' : "");
+    return `<tr data-signal="${command.vehicle[a]}">
+      <td>${cap(a)}${tags}</td>
+      <td>${degraded ? "?" : r.queue}</td>
+      <td>${(r.flow ?? 0).toFixed(1)}</td>
+      <td>${(r.occupancy ?? 0).toFixed(2)}</td>
+      <td>${speed}</td>
+      <td class="${p85 > limit ? "warn" : ""}">${p85 > 0 ? p85.toFixed(1) : "—"}</td>
+      <td style="color:var(--ink-3)">${limit}</td>
+      <td class="${waitClass}">${Math.round(r.max_wait ?? 0)}s</td>
+      <td>${(forecast?.[a] ?? 0).toFixed(1)}</td>
+    </tr>`;
+  }).join("");
+  paintConditions(frame);
+}
+
+function paintConditions(frame) {
+  const env = frame.environment ?? {};
+  const down = degradedOf(frame);
+  const bits = [];
+  if (env.solar_elevation !== undefined) {
+    bits.push(`UV ${(env.uv_index ?? 0).toFixed(2)}`);
+    bits.push(`sun ${env.solar_elevation.toFixed(0)}°/${(env.solar_azimuth ?? 0).toFixed(0)}°`);
+  }
+  if (env.glare) bits.push(`glare: ${glareLegs(frame).join(", ")}`);
+  if (env.stale) bits.push("UV feed stale — modelled");
+  if (down.length) bits.push(`detector down: ${down.join(", ")}`);
+  const note = $("detector-note");
+  if (note) {
+    note.textContent = bits.length ? bits.join(" · ") : "queue, speed, wait";
+    note.style.color = env.glare || down.length ? "var(--caution)" : "";
+  }
+}
+
+function paintLog(decisions) {
+  if (!decisions || !decisions.length) return;
+  $("log").innerHTML = decisions.slice(0, 14).map(d => {
+    const terms = d.terms?.[d.to_phase];
+    const detail = terms ? Object.entries(terms)
+      .filter(([, v]) => v > 0.001)
+      .map(([k, v]) => `${k} ${(+v).toFixed(2)}`).join(" · ") : "";
+    const when = d.timestamp ? new Date(d.timestamp).toLocaleTimeString([], { hour12: false }) : "";
+    return `<article class="entry" data-trigger="${d.trigger}">
+      <div class="meta"><b>${d.from_phase} → ${d.to_phase}</b>${when}<br>cycle ${d.cycle}</div>
+      <div>
+        <p>${escapeHtml(d.reason)}</p>
+        <div class="terms">${d.trigger.replace(/_/g, " ")}${detail ? " · " + detail : ""}
+          · green held ${Math.round(d.served_green_time ?? 0)}s</div>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function paintIncidents(list) {
+  if (!list || !list.length) {
+    $("incidents").innerHTML = `<p class="empty">Nothing detected.</p>`;
+    return;
+  }
+  $("incidents").innerHTML = list.slice(0, 6).map(i => `
+    <div class="incident" data-severity="${i.severity}">
+      <div class="head">${i.kind.replace(/_/g, " ")}<span>${i.layer} · ${i.severity}</span></div>
+      <p>${escapeHtml(i.detail)}</p>
+    </div>`).join("");
+}
+
+const traceHistory = [];
+function paintTrace(frame) {
+  traceHistory.push({ ...Object.fromEntries(APPROACHES.map(a => [a, frame.approaches[a].queue])) });
+  if (traceHistory.length > 180) traceHistory.shift();
+  if (traceHistory.length < 2) return;
+
+  const colours = { north: "var(--go)", south: "var(--caution)", east: "var(--walk)", west: "var(--stop)" };
+  const peak = Math.max(6, ...traceHistory.flatMap(s => APPROACHES.map(a => s[a])));
+  const n = traceHistory.length;
+  const paths = APPROACHES.map(a => {
+    const d = traceHistory.map((s, i) =>
+      `${i === 0 ? "M" : "L"}${((i / (n - 1)) * 600).toFixed(1)} ${(115 - (s[a] / peak) * 108).toFixed(1)}`
+    ).join(" ");
+    return `<path d="${d}" stroke="${colours[a]}" opacity=".9"/>`;
+  }).join("");
+  $("trace").innerHTML =
+    `<path d="M0 115 H600" stroke="var(--rule)" stroke-width="1"/>` + paths;
+  $("trace-legend").innerHTML = APPROACHES
+    .map(a => `<span><i style="background:${colours[a]}"></i>${cap(a)}</span>`).join("")
+    + `<span>peak ${peak} vehicles</span>`;
+  $("trace-note").textContent = `${n} samples`;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ══ controls ═══════════════════════════════════════════════════════ */
+const app = {
+  live: false, token: "", mode: "adaptive",
+  controller: null, sim: null, detector: null, timer: null, socket: null,
+};
+
+function buildControls() {
+  $("ped-buttons").innerHTML = CROSSWALKS.map(cw =>
+    `<button data-action="ped" data-value="${cw}">Across the ${cw.slice(3)} leg</button>`).join("");
+  $("emergency-buttons").innerHTML = APPROACHES.map(a =>
+    `<button class="danger" data-action="emergency" data-value="${a}">Ambulance from the ${a}</button>`).join("");
+  $("weather-buttons").innerHTML = WEATHERS.map(w =>
+    `<button data-action="weather" data-value="${w}" aria-pressed="${w === "clear"}">${cap(w)}</button>`).join("");
+  $("mode-buttons").innerHTML = [["adaptive", "Adaptive"], ["fixed_time", "Fixed time"]]
+    .map(([v, l]) => `<button data-action="mode" data-value="${v}" aria-pressed="${v === "adaptive"}">${l}</button>`).join("");
+
+  document.addEventListener("click", async event => {
+    const button = event.target.closest("button[data-action]");
+    if (!button) return;
+    const { action, value } = button.dataset;
+    if (action === "weather" || action === "mode") {
+      for (const sibling of button.parentElement.querySelectorAll("button"))
+        sibling.setAttribute("aria-pressed", String(sibling === button));
+    }
+    await dispatch(action, value);
+  });
+
+  $("token-save").addEventListener("click", () => {
+    app.token = $("token").value.trim();
+    $("controls-note").textContent = app.token
+      ? "token set — operator actions will be sent to the backend"
+      : "no token — operator actions are disabled by the backend";
+  });
+  $("clear-fault").addEventListener("click", () => dispatch("clear-fault"));
+}
+
+async function dispatch(action, value) {
+  if (app.live) {
+    const routes = {
+      ped: ["/api/signals/ped-call", { crosswalk: value }],
+      emergency: ["/api/signals/emergency", { approach: value, kind: "ambulance", duration: 25 }],
+      weather: ["/api/signals/weather", { weather: value }],
+      mode: ["/api/signals/mode", { mode: value }],
+      "clear-fault": ["/api/signals/clear-fault", {}],
+    };
+    const route = routes[action];
+    if (!route) return;
+    try {
+      const response = await fetch(route[0], {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Operator-Token": app.token },
+        body: JSON.stringify(route[1]),
+      });
+      if (!response.ok) {
+        const reason = response.status === 401 ? "token rejected"
+          : response.status === 503 ? "operator actions are disabled on the server"
+          : `request failed (${response.status})`;
+        $("controls-note").textContent = reason;
+      } else {
+        $("controls-note").textContent = `${action.replace("-", " ")} accepted`;
+      }
+    } catch {
+      $("controls-note").textContent = "backend unreachable";
+    }
+    return;
+  }
+
+  // Local mode: act directly on the in-page controller.
+  if (action === "ped") { app.controller.placePedCall(value); app.sim.pedCalls[value] = true; }
+  if (action === "emergency") app.sim.injectEmergency(value, "ambulance", 25);
+  if (action === "weather") app.sim.weather = value;
+  if (action === "mode") app.controller.mode = value;
+  if (action === "clear-fault") { app.controller.faulted = false; document.documentElement.dataset.faulted = "false"; }
+  $("controls-note").textContent = `${action.replace("-", " ")} applied to the in-page simulation`;
+}
+
+/* ══ wiring ═════════════════════════════════════════════════════════ */
+function renderFromServer(state) {
+  if (!state || state.status === "starting") return;
+  const { command, frame, controller, decisions, incidents, forecast } = state;
+  paintLamps(command);
+  paintQueues(frame);
+  paintCentre(command, controller);
+  paintRing(command, controller, frame);
+  paintApproaches(frame, command, forecast);
+  paintLog(decisions);
+  paintIncidents(incidents);
+  paintTrace(frame);
+  $("r-cycle").textContent = command.cycle;
+  $("r-phase").textContent = command.phase;
+  $("r-mode").textContent = (controller?.mode ?? "adaptive").replace("_", " ");
+  $("r-clock").textContent = new Date(frame.timestamp).toLocaleTimeString([], { hour12: false });
+  document.documentElement.dataset.faulted = String(Boolean(controller?.faulted));
+  $("fault-detail").textContent = controller?.fault_detail ?? "";
+  const m = state.metrics ?? {};
+  $("footer").textContent = m.mean_delay_s !== undefined
+    ? `Mean delay ${m.mean_delay_s}s over ${m.vehicles_served} vehicles · `
+      + `interlock findings ${state.interlock?.total ?? 0} · preemption `
+      + `${Math.round(controller?.preempt_used ?? 0)}s of ${controller?.preempt_budget ?? 0}s used`
+    : "Connected to the control loop.";
+}
+
+function startLocal(reason) {
+  app.live = false;
+  $("source").dataset.live = "false";
+  $("source-text").textContent = "in-page simulation";
+  $("controls-note").textContent = "controls act on the in-page simulation";
+  $("token-group").hidden = true;
+  $("footer").textContent = reason;
+
+  app.controller = new LocalController();
+  app.sim = new LocalSim();
+  app.detector = new LocalIncidents();
+
+  let command = null;
+  const tick = () => {
+    const dt = 1;
+    const frame = app.sim.step(dt, command);
+    command = app.controller.tick(frame, dt);
+    const served = CROSSWALKS.filter(cw => command.pedestrian[cw] !== "DONT_WALK");
+    if (served.length) app.sim.clearPedCalls(served);
+    const incidents = app.detector.update(frame, command, dt);
+
+    const [yellow, allRed] = clearanceFor(frame.weather, glareOf(frame));
+    const floor = Math.max(minGreenFor(frame.weather, glareOf(frame)),
+                           app.controller.pedCommitment());
+    command.interval_remaining =
+      command.interval === "YELLOW" ? Math.max(0, yellow - command.interval_elapsed)
+      : command.interval === "ALL_RED" ? Math.max(0, allRed - command.interval_elapsed)
+      : command.interval === "GREEN"
+        ? (app.controller.greenElapsed < floor
+            ? Math.max(0, floor - app.controller.greenElapsed)
+            : Math.max(0, TIMING.maxGreen - app.controller.greenElapsed))
+        : null;
+
+    const snapshot = {
+      mode: app.controller.mode, faulted: app.controller.faulted, fault_detail: "",
+      preempt_used: app.controller.preemptUsed, preempt_budget: TIMING.preemptBudget,
+      red_time: Object.fromEntries(APPROACHES.map(a => [a, app.controller.redTime(a)])),
+    };
+    renderFromServer({
+      status: "running", command, frame, controller: snapshot,
+      decisions: app.controller.decisions, incidents, forecast: frame.forecast,
+      metrics: app.sim.metrics(), interlock: { total: 0 },
+    });
+  };
+  tick();
+  app.timer = setInterval(tick, 1000);
+}
+
+function openSocket() {
+  const scheme = location.protocol === "https:" ? "wss" : "ws";
+  const socket = new WebSocket(`${scheme}://${location.host}/ws`);
+  app.socket = socket;
+  socket.addEventListener("message", event => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === "state") renderFromServer(message.data);
+    } catch { /* ignore a malformed frame rather than killing the console */ }
+  });
+  socket.addEventListener("close", () => {
+    if (app.live) {
+      $("source-text").textContent = "backend disconnected — retrying";
+      setTimeout(openSocket, 3000);
+    }
+  });
+  // The read keeps the connection warm; the server pushes on its own timer.
+  setInterval(() => { if (socket.readyState === 1) socket.send("ping"); }, 25000);
+}
+
+async function boot() {
+  buildPlan();
+  buildControls();
+  document.documentElement.dataset.mode = "ready";
+
+  let state = null;
+  try {
+    const response = await fetch("/api/state", { cache: "no-store" });
+    if (!response.ok) throw new Error(String(response.status));
+    state = await response.json();
+  } catch {
+    startLocal("No control loop reachable, so the console is driving the same "
+             + "control logic against an in-page arrival simulation.");
+    return;
+  }
+
+  app.live = true;
+  $("source").dataset.live = "true";
+  $("source-text").textContent = "live control loop";
+  $("token-group").hidden = false;
+  $("controls-note").textContent = "no token — operator actions are disabled by the backend";
+  renderFromServer(state);
+  openSocket();
+  // A slow poll backs up the socket without doubling its rate.
+  setInterval(async () => {
+    if (app.socket && app.socket.readyState === 1) return;
+    try {
+      const response = await fetch("/api/state", { cache: "no-store" });
+      if (response.ok) renderFromServer(await response.json());
+    } catch { /* the socket handler owns reconnection messaging */ }
+  }, 5000);
+}
+
+boot();
+</script>
+</body>
+</html>

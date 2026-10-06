@@ -1,0 +1,22 @@
+# Core service
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+pydantic-settings>=2.6
+SQLAlchemy>=2.0.36
+
+# Forecasting and incident detection
+scikit-learn>=1.5
+numpy>=1.26
+pandas>=2.2
+joblib>=1.4
+
+# Tests
+pytest>=8.3
+httpx>=0.27
+
+# Optional: camera sensor backend. Install only if SENSOR_MODE=camera.
+#   pip install "ultralytics>=8.1" "opencv-python-headless>=4.9"
+#
+# Optional: MQTT detector backend. Install only if SENSOR_MODE=iot.
+#   pip install "paho-mqtt>=2.1"

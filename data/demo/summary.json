@@ -1,0 +1,31 @@
+{
+  "seed": 21,
+  "days": 1,
+  "simulated_hours_per_day": 1.5,
+  "sample_seconds": 1.0,
+  "rows": {
+    "detector_log": 21600,
+    "decisions": 218,
+    "incidents": 19,
+    "iot_messages": 25430
+  },
+  "speed": {
+    "measurements": 4567,
+    "speeding_observations": 1163,
+    "speeding_rate": 0.2547
+  },
+  "glare_approach_rows": 370,
+  "malformed_messages": 73,
+  "safety_events": 0,
+  "baseline": {
+    "adaptive_mean_delay_s": 15.15,
+    "fixed_time_mean_delay_s": 22.27,
+    "delay_reduction_pct": 32.0
+  },
+  "notes": [
+    "Arrivals are random; everything else is the controller's response to them.",
+    "Speeds on the simulation backend are modelled from occupancy and free-flow speed. They are not measured by the tracker in app/sensors/speed.py, which needs a camera.",
+    "The delay reduction here is usually larger than the figure in scripts/benchmark.py, and should not be quoted in its place. Demand is randomised, so some days are oversaturated, and a fixed-time plan degrades much faster than an actuated one once demand exceeds capacity. benchmark.py holds demand fixed at a level both controllers can serve, which is the fair comparison.",
+    "Detector rows with degraded=true correspond to a station that publishes nothing at all in iot_messages.jsonl. The silence is the fault signal."
+  ]
+}

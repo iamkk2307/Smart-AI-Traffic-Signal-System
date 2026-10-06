@@ -1,0 +1,36 @@
+# Single service by design. The control loop runs in-process, so there is
+# no broker or time-series database to coordinate with. Postgres is here
+# as an optional swap for SQLite when you want concurrent readers; nothing
+# in the application requires it.
+services:
+  signal:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:///./data/traffic.db
+    volumes:
+      - signal-data:/app/data
+    restart: unless-stopped
+
+  # Enable with: docker compose --profile postgres up
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: signal
+      POSTGRES_USER: signal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signal -d signal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  signal-data:
+  postgres-data:

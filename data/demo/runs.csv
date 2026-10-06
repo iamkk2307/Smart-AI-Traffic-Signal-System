@@ -1,0 +1,3 @@
+day,seed,mode,weather,demand_vph,mean_delay_s,vehicles_served,cycles,safety_events,incidents,dropout,dropout_seconds
+1,172963,adaptive,clear,"{""north"": 856, ""south"": 814, ""east"": 255, ""west"": 278}",15.15,4068,104,0,19,east,175.4
+1,172963,fixed_time,clear,"{""north"": 856, ""south"": 814, ""east"": 255, ""west"": 278}",22.27,3951,65,0,22,east,175.4

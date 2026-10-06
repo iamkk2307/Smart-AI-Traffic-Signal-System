@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Traffic — recorded run</title>
+<style>
+:root{
+  --bg:#0c0e12; --panel:#13161c; --panel-2:#181c23; --line:#242a33;
+  --ink:#e8ecf2; --ink-2:#9aa4b2; --ink-3:#5f6b7a;
+  --go:#3ddc84; --caution:#f5c451; --stop:#f2674a; --walk:#56b6ff;
+  --accent:#8b9dff; --warn:#f5c451; --bad:#f2674a;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f6f7f9; --panel:#ffffff; --panel-2:#f1f3f6; --line:#dde1e8;
+    --ink:#161a20; --ink-2:#5b6472; --ink-3:#8b95a3;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#f1f3f6; --line:#dde1e8;
+  --ink:#161a20; --ink-2:#5b6472; --ink-3:#8b95a3;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  font-size:14px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding:18px 16px 56px}
+h1{font-size:19px;margin:0;letter-spacing:-.01em}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;margin:0;color:var(--ink-2)}
+.sub{color:var(--ink-2);font-size:13px;margin:4px 0 0}
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;
+  justify-content:space-between;margin-bottom:14px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;
+  text-transform:uppercase;letter-spacing:.08em;padding:4px 9px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--ink-2);white-space:nowrap}
+.badge b{color:var(--ink);font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:0 0 auto}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:14px;min-width:0}
+.panel>header{display:flex;align-items:baseline;justify-content:space-between;
+  gap:10px;margin-bottom:12px}
+.note{font-size:11.5px;color:var(--ink-3);font-family:var(--mono)}
+
+.grid{display:grid;gap:14px}
+.cols{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:960px){.cols,.cols3{grid-template-columns:1fr}}
+
+/* ── transport ── */
+.transport{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:10px 14px;margin-bottom:14px;position:sticky;
+  top:env(safe-area-inset-top,0px);z-index:5}
+button{font:inherit;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);
+  border-radius:9px;padding:7px 13px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+button.primary{min-width:84px;font-weight:600}
+input[type=range]{accent-color:var(--accent);flex:1 1 220px;min-width:140px}
+.clock{font-family:var(--mono);font-size:15px;min-width:118px}
+.clock small{color:var(--ink-3);font-size:11px;display:block}
+
+/* ── junction ── */
+.junction{width:100%;height:auto;display:block;border-radius:10px;
+  background:var(--panel-2)}
+.hud{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));
+  gap:8px;margin-top:12px}
+.stat{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat span{display:block;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.07em;color:var(--ink-3)}
+.stat b{font-family:var(--mono);font-size:17px;font-weight:600}
+.stat b.go{color:var(--go)}.stat b.caution{color:var(--caution)}
+.stat b.stop{color:var(--stop)}.stat b.warn{color:var(--warn)}
+
+/* ── table ── */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:580px}
+th{text-align:right;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--ink-3);font-weight:500;padding:0 8px 7px;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{text-align:right;padding:7px 8px;border-top:1px solid var(--line);
+  font-family:var(--mono)}
+td:first-child{font-family:var(--sans)}
+tbody tr td:first-child{position:relative;padding-left:16px}
+tbody tr td:first-child::before{content:"";position:absolute;left:0;top:50%;
+  transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+tr[data-signal=GREEN] td:first-child::before{background:var(--go)}
+tr[data-signal=YELLOW] td:first-child::before{background:var(--caution)}
+tr[data-signal=RED] td:first-child::before{background:var(--stop)}
+td.warn{color:var(--warn)}td.bad{color:var(--bad)}
+.tag{font-family:var(--sans);font-size:10px;text-transform:uppercase;letter-spacing:.06em;
+  padding:2px 6px;border-radius:5px;border:1px solid currentColor;margin-left:6px}
+.tag.down{color:var(--bad)}.tag.glare{color:var(--caution)}.tag.over{color:var(--stop)}
+
+/* ── env ── */
+.sky{display:flex;gap:14px;align-items:center}
+.sky svg{flex:0 0 auto}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12.5px;margin:0}
+.kv dt{color:var(--ink-3)}
+.kv dd{margin:0;font-family:var(--mono)}
+
+/* ── log ── */
+.log{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto}
+.entry{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:9px 10px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+  border-left:3px solid var(--ink-3);font-size:12.5px}
+.entry[data-trigger=preempt],.entry[data-trigger=preempt_release]{border-left-color:var(--stop)}
+.entry[data-trigger=max_out]{border-left-color:var(--caution)}
+.entry[data-trigger=gap_out]{border-left-color:var(--go)}
+.entry[data-trigger=ped_call],.entry[data-trigger=starvation]{border-left-color:var(--walk)}
+.entry .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.entry .meta b{color:var(--ink);display:block;font-size:12px}
+.entry p{margin:0 0 5px}
+.terms{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.empty{color:var(--ink-3);font-size:12.5px;margin:0}
+
+/* ── charts ── */
+.trace{width:100%;height:120px;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:11.5px;color:var(--ink-2)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.bars{display:flex;flex-direction:column;gap:9px;margin:0}
+.bar-row{display:grid;grid-template-columns:84px 1fr 72px;gap:10px;align-items:center;font-size:12.5px}
+.bar{height:9px;border-radius:999px;background:var(--panel-2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.alt{background:var(--ink-3)}
+.bar-row b{font-family:var(--mono);text-align:right}
+footer{margin-top:22px;color:var(--ink-3);font-size:12px;max-width:72ch}
+footer p{margin:0 0 8px}
+code{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div>
+    <h1>Smart Traffic — adaptive signal control</h1>
+    <p class="sub" id="run-sub">—</p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <span class="badge"><span class="dot"></span>Recorded run &mdash; not a live controller</span>
+    <button id="theme" aria-pressed="false" title="Toggle light and dark">Light</button>
+  </div>
+</header>
+
+<div class="transport" role="group" aria-label="Playback controls">
+  <button class="primary" id="play" aria-pressed="true">Pause</button>
+  <div class="clock"><span id="clock">—</span><small id="step">—</small></div>
+  <input type="range" id="scrub" min="0" max="1" value="0" step="1" aria-label="Scrub through the run">
+  <span style="display:flex;gap:6px">
+    <button data-rate="1" aria-pressed="false">1&times;</button>
+    <button data-rate="4" aria-pressed="true">4&times;</button>
+    <button data-rate="16" aria-pressed="false">16&times;</button>
+  </span>
+  <button id="jump-glare" title="Jump to the next low-sun glare period">Next glare</button>
+  <button id="jump-fault" title="Jump to the next detector dropout">Next dropout</button>
+</div>
+
+<div class="grid cols" style="margin-bottom:14px">
+  <section class="panel" aria-label="Junction">
+    <header><h2>Junction</h2><span class="note" id="phase-note">—</span></header>
+    <svg class="junction" id="junction" viewBox="0 0 560 560" role="img"
+         aria-label="Plan view of the intersection with signal indications and standing queues"></svg>
+    <div class="hud">
+      <div class="stat"><span>Interval</span><b id="hud-interval">—</b></div>
+      <div class="stat"><span>Discharge</span><b id="hud-flow">—</b></div>
+      <div class="stat"><span>Cycle</span><b id="hud-cycle">—</b></div>
+      <div class="stat"><span>Total queue</span><b id="hud-queue">—</b></div>
+      <div class="stat"><span>Longest wait</span><b id="hud-wait">—</b></div>
+    </div>
+  </section>
+
+  <div class="grid" style="align-content:start">
+    <section class="panel" aria-label="Conditions">
+      <header><h2>Conditions</h2><span class="note" id="env-note">—</span></header>
+      <div class="sky">
+        <svg id="sky" width="132" height="92" viewBox="0 0 132 92" role="img"
+             aria-label="Sun position relative to the junction"></svg>
+        <dl class="kv" id="env-kv"></dl>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Approach detectors">
+      <header><h2>Approach detectors</h2><span class="note">queue · speed · wait</span></header>
+      <div class="scroll">
+        <table>
+          <thead><tr>
+            <th scope="col">Approach</th><th scope="col">Queue</th><th scope="col">Flow</th>
+            <th scope="col">Occ</th><th scope="col">Speed</th><th scope="col">85th</th>
+            <th scope="col">Limit</th><th scope="col">Wait</th>
+          </tr></thead>
+          <tbody id="detectors"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="panel" style="margin-bottom:14px" aria-label="Decision log">
+  <header><h2>Why the signal did that</h2>
+    <span class="note">every phase change, with the numbers behind it</span></header>
+  <div class="log" id="log"><p class="empty">Waiting for the first phase change.</p></div>
+</section>
+
+<div class="grid cols3">
+  <section class="panel" aria-label="Queue trace">
+    <header><h2>Standing queue</h2><span class="note" id="trace-note">—</span></header>
+    <svg class="trace" id="trace" viewBox="0 0 600 120" preserveAspectRatio="none" role="img"
+         aria-label="Queue length over time for each approach"></svg>
+    <div class="legend" id="trace-legend"></div>
+  </section>
+
+  <section class="panel" aria-label="Speed profile">
+    <header><h2>Speed vs limit</h2><span class="note" id="speed-note">—</span></header>
+    <dl class="bars" id="speed-bars"></dl>
+  </section>
+
+  <section class="panel" aria-label="Incidents and comparison">
+    <header><h2>Run totals</h2><span class="note">whole dataset</span></header>
+    <dl class="bars" id="totals"></dl>
+    <div class="log" id="incidents" style="max-height:150px;margin-top:12px">
+      <p class="empty">No incidents raised yet.</p>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <p id="foot-note">—</p>
+  <p>Speeds on this run are modelled from occupancy and free-flow speed by the
+  microsimulation. The multi-frame road-plane tracker in
+  <code>app/sensors/speed.py</code> needs a camera, so nothing here is a measured
+  speed. Glare is computed from real solar geometry for the site's latitude and
+  longitude, and the clearance intervals shown are the ones the controller
+  actually used.</p>
+</footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/ null;
+
+const $ = id => document.getElementById(id);
+const APPROACHES = DATA.approaches;
+const COLOR = { north:"#8b9dff", south:"#3ddc84", east:"#f5c451", west:"#f2674a" };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const N = DATA.t.length;
+
+/* ── state ── */
+let i = 0, playing = true, rate = 4, last = 0, acc = 0;
+
+/* ══ junction plan ══════════════════════════════════════════════════ */
+const GEO = {
+  north: { x:280, y:150, dx:0,  dy:-1, qx:0,  qy:-1, lane:-18 },
+  south: { x:280, y:410, dx:0,  dy:1,  qx:0,  qy:1,  lane:18  },
+  east:  { x:410, y:280, dx:1,  dy:0,  qx:1,  qy:0,  lane:-18 },
+  west:  { x:150, y:280, dx:-1, dy:0,  qx:-1, qy:0,  lane:18  },
+};
+const SIGNAL_FILL = { GREEN:"var(--go)", YELLOW:"var(--caution)", RED:"var(--stop)" };
+
+function junctionStatic(){
+  return `
+  <rect x="0" y="0" width="560" height="560" rx="10" fill="var(--panel-2)"/>
+  <rect x="196" y="0" width="168" height="560" fill="#1f242c"/>
+  <rect x="0" y="196" width="560" height="168" fill="#1f242c"/>
+  <rect x="196" y="196" width="168" height="168" fill="#232933"/>
+  <line x1="280" y1="0" x2="280" y2="196" stroke="#3b4350" stroke-width="2" stroke-dasharray="14 12"/>
+  <line x1="280" y1="364" x2="280" y2="560" stroke="#3b4350" stroke-width="2" stroke-dasharray="14 12"/>
+  <line x1="0" y1="280" x2="196" y2="280" stroke="#3b4350" stroke-width="2" stroke-dasharray="14 12"/>
+  <line x1="364" y1="280" x2="560" y2="280" stroke="#3b4350" stroke-width="2" stroke-dasharray="14 12"/>
+  <g font-size="11" fill="var(--ink-3)" font-family="var(--mono)">
+    <text x="286" y="18">N</text><text x="540" y="286">E</text>
+  </g>`;
+}
+
+function vehicles(approach, queue){
+  const g = GEO[approach], out = [];
+  const shown = Math.min(queue, 11);
+  for (let k = 0; k < shown; k++){
+    const gap = 22 + k * 20;
+    const cx = g.x + g.qx * gap + (g.dy !== 0 ? g.lane : 0);
+    const cy = g.y + g.qy * gap + (g.dx !== 0 ? g.lane : 0);
+    const w = g.dx !== 0 ? 16 : 10, h = g.dx !== 0 ? 10 : 16;
+    out.push(`<rect x="${cx - w/2}" y="${cy - h/2}" width="${w}" height="${h}" rx="2.5"
+      fill="${COLOR[approach]}" opacity="${0.95 - k * 0.055}"/>`);
+  }
+  if (queue > shown){
+    const gap = 22 + shown * 20;
+    const cx = g.x + g.qx * gap + (g.dy !== 0 ? g.lane : 0);
+    const cy = g.y + g.qy * gap + (g.dx !== 0 ? g.lane : 0);
+    out.push(`<text x="${cx}" y="${cy + 4}" font-size="11" font-family="var(--mono)"
+      text-anchor="middle" fill="var(--ink-2)">+${queue - shown}</text>`);
+  }
+  return out.join("");
+}
+
+function head(approach, signal){
+  const g = GEO[approach];
+  const hx = g.x + (g.dy !== 0 ? g.lane * 2.6 : 0) + (g.dx !== 0 ? g.qx * 8 : 0);
+  const hy = g.y + (g.dx !== 0 ? g.lane * 2.6 : 0) + (g.dy !== 0 ? g.qy * 8 : 0);
+  const lamp = (dy, on, fill) =>
+    `<circle cx="${hx}" cy="${hy + dy}" r="4.6" fill="${on ? fill : "#2b313b"}"
+      ${on ? `stroke="${fill}" stroke-opacity=".35" stroke-width="5"` : ""}/>`;
+  return `<g>
+    <rect x="${hx - 7.5}" y="${hy - 18}" width="15" height="36" rx="4"
+      fill="#15181e" stroke="var(--line)"/>
+    ${lamp(-11, signal === "RED", "var(--stop)")}
+    ${lamp(0, signal === "YELLOW", "var(--caution)")}
+    ${lamp(11, signal === "GREEN", "var(--go)")}
+  </g>`;
+}
+
+function glareArrow(approach){
+  const g = GEO[approach];
+  const x = g.x + g.qx * 118 + (g.dy !== 0 ? g.lane : 0);
+  const y = g.y + g.qy * 118 + (g.dx !== 0 ? g.lane : 0);
+  return `<g opacity=".92">
+    <circle cx="${x}" cy="${y}" r="13" fill="none" stroke="var(--caution)"
+      stroke-width="1.5" stroke-dasharray="3 3"/>
+    <text x="${x}" y="${y + 4}" font-size="12" text-anchor="middle"
+      fill="var(--caution)">☀</text></g>`;
+}
+
+function paintJunction(){
+  const sig = DATA.signal[i], glare = DATA.glare_legs[i] || [];
+  let svg = junctionStatic();
+  for (const a of APPROACHES) svg += vehicles(a, DATA.queue[i][APPROACHES.indexOf(a)]);
+  for (const a of APPROACHES) svg += head(a, sig[APPROACHES.indexOf(a)]);
+  for (const a of glare) svg += glareArrow(a);
+  if (DATA.preempted[i]){
+    svg += `<g><rect x="196" y="196" width="168" height="168" fill="none"
+      stroke="var(--stop)" stroke-width="3" rx="6"/>
+      <text x="280" y="290" text-anchor="middle" font-size="13"
+        fill="var(--stop)" font-family="var(--mono)">EMERGENCY HOLD</text></g>`;
+  }
+  const down = DATA.degraded[i] || [];
+  if (down.length){
+    svg += `<text x="280" y="540" text-anchor="middle" font-size="12"
+      fill="var(--bad)" font-family="var(--mono)">detector down: ${down.join(", ")} — on recall</text>`;
+  }
+  $("junction").innerHTML = svg;
+}
+
+/* ══ sky dial ═══════════════════════════════════════════════════════ */
+function paintSky(){
+  const el = DATA.elev[i], az = DATA.az[i], glare = (DATA.glare_legs[i] || []).length > 0;
+  const cx = 66, cy = 74, r = 52;
+  // Horizon half-dome; the sun is placed by azimuth across it and raised
+  // by elevation, so a low sun sits near the rim where glare happens.
+  const t = Math.max(-0.12, Math.min(1, el / 90));
+  const ang = Math.PI * (1 - ((az + 90) % 360) / 180);
+  const sx = cx + Math.cos(ang) * r * (1 - t * 0.55);
+  const sy = cy - Math.max(-6, Math.sin(Math.max(0, t) * Math.PI / 2) * r * 0.92 + (el <= 0 ? -8 : 0));
+  const col = el <= 0 ? "var(--ink-3)" : glare ? "var(--caution)" : "var(--go)";
+  $("sky").innerHTML = `
+    <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none"
+      stroke="var(--line)" stroke-width="1.5"/>
+    <line x1="${cx - r - 6}" y1="${cy}" x2="${cx + r + 6}" y2="${cy}"
+      stroke="var(--line)" stroke-width="1.5"/>
+    <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none"
+      stroke="var(--caution)" stroke-opacity=".18" stroke-width="12"/>
+    <circle cx="${sx}" cy="${sy}" r="7" fill="${col}"
+      ${glare ? 'stroke="var(--caution)" stroke-opacity=".3" stroke-width="7"' : ""}/>
+    <g font-size="9" font-family="var(--mono)" fill="var(--ink-3)">
+      <text x="2" y="88">E</text><text x="${cx - 3}" y="12">zenith</text>
+      <text x="122" y="88">W</text></g>`;
+
+  const clearance = DATA.clearance[i];
+  $("env-kv").innerHTML = `
+    <dt>Weather</dt><dd>${DATA.weather}</dd>
+    <dt>UV index</dt><dd>${DATA.uv[i].toFixed(2)}</dd>
+    <dt>Sun</dt><dd>${el.toFixed(1)}° elev · ${az.toFixed(0)}° az</dd>
+    <dt>Glare</dt><dd${glare ? ' style="color:var(--caution)"' : ""}>${
+      glare ? DATA.glare_legs[i].map(cap).join(", ") + " blinded" : "none"}</dd>
+    <dt>Clearance</dt><dd>${clearance[0].toFixed(1)}s + ${clearance[1].toFixed(1)}s</dd>
+    <dt>Discharge</dt><dd>${clearance[2].toFixed(2)} veh/s</dd>`;
+  $("env-note").textContent = glare ? "low-sun glare active" : "nominal";
+}
+
+/* ══ detector table ═════════════════════════════════════════════════ */
+function paintDetectors(){
+  const down = new Set(DATA.degraded[i] || []);
+  const glare = new Set(DATA.glare_legs[i] || []);
+  $("detectors").innerHTML = APPROACHES.map((a, k) => {
+    const wait = DATA.wait[i][k], speed = DATA.speed[i][k], p85 = DATA.p85[i][k];
+    const limit = DATA.limit[a];
+    const waitCls = wait >= 120 ? "bad" : wait >= 70 ? "warn" : "";
+    const tags = (down.has(a) ? '<span class="tag down">down</span>' : "")
+               + (glare.has(a) ? '<span class="tag glare">glare</span>' : "")
+               + (p85 > limit ? '<span class="tag over">85th over</span>' : "");
+    return `<tr data-signal="${DATA.signal[i][k]}">
+      <td>${cap(a)}${tags}</td>
+      <td>${DATA.queue[i][k]}</td>
+      <td>${DATA.flow[i][k].toFixed(1)}</td>
+      <td>${DATA.occ[i][k].toFixed(2)}</td>
+      <td>${speed > 0 ? speed.toFixed(1) : "—"}</td>
+      <td class="${p85 > limit ? "warn" : ""}">${p85 > 0 ? p85.toFixed(1) : "—"}</td>
+      <td style="color:var(--ink-3)">${limit}</td>
+      <td class="${waitCls}">${Math.round(wait)}s</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ══ hud ════════════════════════════════════════════════════════════ */
+function paintHud(){
+  const interval = DATA.interval[i];
+  const cls = interval === "GREEN" ? "go" : interval === "YELLOW" ? "caution" : "stop";
+  $("hud-interval").className = cls;
+  $("hud-interval").textContent = interval.replace("_", " ");
+  // Served flow across the junction, summed over approaches. The sampled
+  // series carries no interval-elapsed time, so a countdown is not
+  // derivable from it and is not shown rather than estimated.
+  $("hud-flow").textContent =
+    DATA.flow[i].reduce((a, b) => a + b, 0).toFixed(1) + "/m";
+  $("hud-cycle").textContent = DATA.cycle[i];
+  const total = DATA.queue[i].reduce((a, b) => a + b, 0);
+  $("hud-queue").textContent = total;
+  const maxWait = Math.max(...DATA.wait[i]);
+  $("hud-wait").className = maxWait >= 120 ? "bad" : maxWait >= 70 ? "warn" : "";
+  $("hud-wait").textContent = Math.round(maxWait) + "s";
+  $("phase-note").textContent =
+    `${DATA.phase_label[DATA.phase[i]]} · ${DATA.preempted[i] ? "preempted" : "adaptive"}`;
+  const d = new Date(DATA.clock[i]);
+  $("clock").textContent = d.toISOString().slice(11, 19);
+  $("step").textContent = `sample ${i + 1} of ${N} · t+${Math.round(DATA.t[i])}s`;
+}
+
+/* ══ decision log and incidents ═════════════════════════════════════ */
+function paintLog(){
+  const shown = DATA.decisions.filter(d => d.i <= i).slice(-14).reverse();
+  if (!shown.length){
+    $("log").innerHTML = '<p class="empty">Waiting for the first phase change.</p>';
+    return;
+  }
+  $("log").innerHTML = shown.map(d => {
+    const terms = Object.entries(d.terms || {})
+      .filter(([, v]) => v > 0.001)
+      .map(([k, v]) => `${k} ${(+v).toFixed(2)}`).join(" · ");
+    return `<article class="entry" data-trigger="${d.trigger}">
+      <div class="meta"><b>${d.from} → ${d.to}</b>cycle ${d.cycle}<br>
+        ${Math.round(d.green)}s green</div>
+      <div><p>${escapeHtml(d.reason)}</p>
+        <div class="terms">${d.trigger.replace(/_/g, " ")}${terms ? " · " + terms : ""}</div>
+      </div></article>`;
+  }).join("");
+}
+
+function paintIncidents(){
+  const shown = DATA.incidents.filter(x => x.i <= i).slice(-8).reverse();
+  if (!shown.length){
+    $("incidents").innerHTML = '<p class="empty">No incidents raised yet.</p>';
+    return;
+  }
+  $("incidents").innerHTML = shown.map(x => `<article class="entry"
+      data-trigger="${x.kind}" style="grid-template-columns:72px 1fr">
+    <div class="meta"><b>${cap(x.approach || "junction")}</b>${x.layer}</div>
+    <div><p>${escapeHtml(x.detail)}</p>
+      <div class="terms">${x.kind.replace(/_/g, " ")} · ${x.severity}</div></div>
+  </article>`).join("");
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]);
+}
+
+/* ══ traces ═════════════════════════════════════════════════════════ */
+const WINDOW = 180;
+function paintTrace(){
+  const from = Math.max(0, i - WINDOW + 1);
+  const slice = DATA.queue.slice(from, i + 1);
+  if (slice.length < 2){ $("trace").innerHTML = ""; return; }
+  const peak = Math.max(6, ...slice.flat());
+  const x = k => (k / (slice.length - 1)) * 600;
+  const y = v => 116 - (v / peak) * 108;
+  const paths = APPROACHES.map((a, k) => {
+    const d = slice.map((row, s) => `${s ? "L" : "M"}${x(s).toFixed(1)} ${y(row[k]).toFixed(1)}`).join(" ");
+    return `<path d="${d}" fill="none" stroke="${COLOR[a]}" stroke-width="1.8"
+      stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  }).join("");
+  $("trace").innerHTML =
+    `<line x1="0" y1="116" x2="600" y2="116" stroke="var(--line)"/>` + paths;
+  $("trace-note").textContent = `peak ${peak} veh · last ${slice.length} samples`;
+  $("trace-legend").innerHTML = APPROACHES.map(a =>
+    `<span><i style="background:${COLOR[a]}"></i>${cap(a)}</span>`).join("");
+}
+
+function paintSpeedBars(){
+  const rows = APPROACHES.map((a, k) => {
+    const limit = DATA.limit[a], p85 = DATA.p85[i][k], mean = DATA.speed[i][k];
+    const scale = limit * 1.5;
+    return `<div class="bar-row">
+      <span>${cap(a)}</span>
+      <span class="bar" title="mean ${mean.toFixed(1)} km/h, 85th ${p85.toFixed(1)} km/h">
+        <i class="${p85 > limit ? "" : "alt"}" style="width:${Math.min(100, p85 / scale * 100)}%"></i>
+      </span>
+      <b class="${p85 > limit ? "warn" : ""}">${p85 > 0 ? p85.toFixed(0) : "—"}/${limit}</b>
+    </div>`;
+  }).join("");
+  $("speed-bars").innerHTML = rows;
+  const speeding = DATA.speeding[i].reduce((a, b) => a + b, 0);
+  $("speed-note").textContent = speeding
+    ? `${speeding} over the limit in this sample` : "85th percentile, km/h";
+}
+
+function paintTotals(){
+  const b = DATA.totals;
+  const worst = Math.max(b.fixed_delay, b.adaptive_delay) || 1;
+  $("totals").innerHTML = `
+    <div class="bar-row"><span>Adaptive</span>
+      <span class="bar"><i style="width:${b.adaptive_delay / worst * 100}%"></i></span>
+      <b>${b.adaptive_delay.toFixed(1)}s</b></div>
+    <div class="bar-row"><span>Fixed-time</span>
+      <span class="bar"><i class="alt" style="width:${b.fixed_delay / worst * 100}%"></i></span>
+      <b>${b.fixed_delay.toFixed(1)}s</b></div>
+    <div class="bar-row" style="grid-template-columns:84px 1fr">
+      <span>Delay cut</span><b style="text-align:left;color:var(--go)">${b.reduction}%</b></div>
+    <div class="bar-row" style="grid-template-columns:84px 1fr">
+      <span>Safety events</span><b style="text-align:left;color:${
+        b.safety_events ? "var(--bad)" : "var(--go)"}">${b.safety_events}</b></div>`;
+}
+
+/* ══ loop ═══════════════════════════════════════════════════════════ */
+function render(){
+  paintJunction(); paintSky(); paintDetectors(); paintHud();
+  paintLog(); paintIncidents(); paintTrace(); paintSpeedBars();
+  $("scrub").value = i;
+}
+
+function tick(now){
+  if (playing){
+    if (!last) last = now;
+    acc += (now - last) * rate / 1000;
+    last = now;
+    const step = DATA.sample_seconds;
+    while (acc >= step){ acc -= step; i = (i + 1) % N; }
+    render();
+  } else { last = 0; }
+  requestAnimationFrame(tick);
+}
+
+/* ══ controls ═══════════════════════════════════════════════════════ */
+$("play").addEventListener("click", () => {
+  playing = !playing;
+  $("play").textContent = playing ? "Pause" : "Play";
+  $("play").setAttribute("aria-pressed", String(playing));
+  last = 0;
+});
+$("scrub").addEventListener("input", e => { i = +e.target.value; render(); });
+document.querySelectorAll("[data-rate]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    rate = +btn.dataset.rate;
+    document.querySelectorAll("[data-rate]").forEach(b =>
+      b.setAttribute("aria-pressed", String(b === btn)));
+  });
+});
+function jumpTo(predicate, label){
+  for (let k = 1; k <= N; k++){
+    const j = (i + k) % N;
+    if (predicate(j)){ i = j; render(); return; }
+  }
+  alert(`No ${label} in this recorded run.`);
+}
+$("jump-glare").addEventListener("click", () =>
+  jumpTo(j => (DATA.glare_legs[j] || []).length > 0, "glare period"));
+$("jump-fault").addEventListener("click", () =>
+  jumpTo(j => (DATA.degraded[j] || []).length > 0, "detector dropout"));
+$("theme").addEventListener("click", () => {
+  const light = document.documentElement.dataset.theme !== "light";
+  document.documentElement.dataset.theme = light ? "light" : "dark";
+  $("theme").textContent = light ? "Dark" : "Light";
+  $("theme").setAttribute("aria-pressed", String(light));
+});
+document.addEventListener("keydown", e => {
+  if (e.key === " "){ e.preventDefault(); $("play").click(); }
+  if (e.key === "ArrowRight"){ i = Math.min(N - 1, i + 1); render(); }
+  if (e.key === "ArrowLeft"){ i = Math.max(0, i - 1); render(); }
+});
+
+$("run-sub").textContent = DATA.subtitle;
+$("foot-note").textContent = DATA.footnote;
+paintTotals();
+render();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
